@@ -771,31 +771,43 @@ export default function App() {
           line-height: 1.2 !important;
         }
 
-        .windfall-cost-table table thead tr:first-child th:nth-child(3),
-        .windfall-cost-table table thead tr:first-child th:nth-child(4),
-        .windfall-cost-table table thead tr:first-child th:nth-child(5) {
-          background: rgba(126, 211, 160, 0.10) !important;
+        /* Off-Peak: cyan — 3 shading levels */
+        .windfall-cost-table table thead tr:first-child th:nth-child(3) {
+          background: rgba(86, 204, 242, 0.32) !important;
         }
-
-        .windfall-cost-table table thead tr:nth-child(2) th:nth-child(3),
+        .windfall-cost-table table thead tr:nth-child(2) th:nth-child(1),
+        .windfall-cost-table table thead tr:nth-child(2) th:nth-child(2) {
+          background: rgba(86, 204, 242, 0.20) !important;
+        }
         .windfall-cost-table table tbody td:nth-child(3),
-        .windfall-cost-table table thead tr:nth-child(2) th:nth-child(4),
         .windfall-cost-table table tbody td:nth-child(4) {
-          background: rgba(126, 211, 160, 0.12) !important;
+          background: rgba(86, 204, 242, 0.09) !important;
         }
 
-        .windfall-cost-table table thead tr:nth-child(2) th:nth-child(5),
+        /* Peak: orange — 3 shading levels */
+        .windfall-cost-table table thead tr:first-child th:nth-child(4) {
+          background: rgba(242, 153, 74, 0.32) !important;
+        }
+        .windfall-cost-table table thead tr:nth-child(2) th:nth-child(3),
+        .windfall-cost-table table thead tr:nth-child(2) th:nth-child(4) {
+          background: rgba(242, 153, 74, 0.20) !important;
+        }
         .windfall-cost-table table tbody td:nth-child(5),
-        .windfall-cost-table table thead tr:nth-child(2) th:nth-child(6),
         .windfall-cost-table table tbody td:nth-child(6) {
-          background: rgba(255, 171, 102, 0.12) !important;
+          background: rgba(242, 153, 74, 0.09) !important;
         }
 
-        .windfall-cost-table table thead tr:nth-child(2) th:nth-child(7),
+        /* Standing Charge: purple — 3 shading levels */
+        .windfall-cost-table table thead tr:first-child th:nth-child(5) {
+          background: rgba(187, 107, 217, 0.32) !important;
+        }
+        .windfall-cost-table table thead tr:nth-child(2) th:nth-child(5),
+        .windfall-cost-table table thead tr:nth-child(2) th:nth-child(6) {
+          background: rgba(187, 107, 217, 0.20) !important;
+        }
         .windfall-cost-table table tbody td:nth-child(7),
-        .windfall-cost-table table thead tr:nth-child(2) th:nth-child(8),
         .windfall-cost-table table tbody td:nth-child(8) {
-          background: rgba(194, 140, 255, 0.12) !important;
+          background: rgba(187, 107, 217, 0.09) !important;
         }
 
         .windfall-export-table table thead th:nth-child(2),
