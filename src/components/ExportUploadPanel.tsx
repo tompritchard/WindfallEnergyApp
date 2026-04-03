@@ -9,6 +9,8 @@ type ExportUploadPanelProps = {
   intervalCount: number;
   firstDate: string | null;
   lastDate: string | null;
+  appendMode: boolean;
+  onAppendModeChange: (value: boolean) => void;
   theme: DashboardTheme;
 };
 
@@ -41,6 +43,8 @@ export default function ExportUploadPanel({
   intervalCount,
   firstDate,
   lastDate,
+  appendMode,
+  onAppendModeChange,
   theme,
 }: ExportUploadPanelProps) {
   const ui = theme.components.uploadPanel;
@@ -72,6 +76,15 @@ export default function ExportUploadPanel({
         >
           Select CSV files
         </button>
+
+        <label style={ui.optionChip}>
+          <input
+            type="checkbox"
+            checked={appendMode}
+            onChange={(e) => onAppendModeChange(e.target.checked)}
+          />
+          Append to existing data
+        </label>
 
         <input
           ref={inputRef}

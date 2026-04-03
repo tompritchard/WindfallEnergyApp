@@ -59,6 +59,7 @@ type StoredDashboardState = {
   fileNames?: string[];
   exportFileNames?: string[];
   appendMode?: boolean;
+  exportAppendMode?: boolean;
   selectedThemeId?: string;
 };
 
@@ -137,6 +138,7 @@ export default function App() {
   const [exportFileNames, setExportFileNames] = useState<string[]>([]);
   const [issues, setIssues] = useState<ParseIssue[]>([]);
   const [appendMode, setAppendMode] = useState<boolean>(true);
+  const [exportAppendMode, setExportAppendMode] = useState<boolean>(true);
   const [selectedThemeId, setSelectedThemeId] =
     useState<string>(defaultThemeId);
   const [hasRestoredState, setHasRestoredState] = useState<boolean>(false);
@@ -188,6 +190,9 @@ export default function App() {
       setAppendMode(
         typeof parsed.appendMode === "boolean" ? parsed.appendMode : true
       );
+      setExportAppendMode(
+        typeof parsed.exportAppendMode === "boolean" ? parsed.exportAppendMode : true
+      );
       setSelectedThemeId(
         typeof parsed.selectedThemeId === "string"
           ? parsed.selectedThemeId
@@ -202,6 +207,7 @@ export default function App() {
       setExportFileNames([]);
       setIssues([]);
       setAppendMode(true);
+      setExportAppendMode(true);
       setSelectedThemeId(defaultThemeId);
     } finally {
       setHasRestoredState(true);
@@ -218,6 +224,7 @@ export default function App() {
         fileNames,
         exportFileNames,
         appendMode,
+        exportAppendMode,
         selectedThemeId,
       };
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -230,6 +237,7 @@ export default function App() {
     fileNames,
     exportFileNames,
     appendMode,
+    exportAppendMode,
     selectedThemeId,
     hasRestoredState,
   ]);
@@ -324,9 +332,10 @@ export default function App() {
     }
 
     const combinedNewRows = parsedBatches.flat();
+    const baseRows = exportAppendMode ? exportRows : [];
     const dedupedMap = new Map<string, ExportRow>();
 
-    for (const row of [...exportRows, ...combinedNewRows]) {
+    for (const row of [...baseRows, ...combinedNewRows]) {
       const key = row.date.toISOString();
       dedupedMap.set(key, row);
     }
@@ -335,8 +344,9 @@ export default function App() {
       (a, b) => a.date.getTime() - b.date.getTime()
     );
 
+    const baseFileNames = exportAppendMode ? (exportFileNames ?? []) : [];
     const merged = Array.from(
-      new Set([...(exportFileNames ?? []), ...files.map((file) => file.name)])
+      new Set([...baseFileNames, ...files.map((file) => file.name)])
     ).sort();
 
     setExportRows(finalRows);
@@ -956,6 +966,8 @@ export default function App() {
               intervalCount={exportRows.length}
               firstDate={exportRows.length > 0 ? formatDisplayDate(formatDateKey(exportRows[0].date)) : null}
               lastDate={exportRows.length > 0 ? formatDisplayDate(formatDateKey(exportRows[exportRows.length - 1].date)) : null}
+              appendMode={exportAppendMode}
+              onAppendModeChange={setExportAppendMode}
               theme={theme}
             />
           </div>
