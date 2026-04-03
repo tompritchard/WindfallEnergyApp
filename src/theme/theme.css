@@ -1,0 +1,98 @@
+.dashboard-theme {
+  min-height: 100vh;
+  color: var(--theme-text);
+  font-family: var(--theme-font-family-base);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--theme-bg) 92%, transparent) 0%, var(--theme-bg) 100%),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--theme-primary) 18%, transparent), transparent 32%),
+    radial-gradient(circle at bottom left, color-mix(in srgb, var(--theme-accent) 12%, transparent), transparent 30%),
+    var(--theme-bg);
+}
+
+.dashboard-sidebar {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--theme-bg-panel) 92%, transparent) 0%,
+    color-mix(in srgb, var(--theme-bg-elevated) 96%, transparent) 100%
+  );
+  border: 1px solid var(--theme-border);
+  box-shadow: var(--theme-shadow-md);
+  backdrop-filter: blur(var(--theme-backdrop-blur));
+  border-radius: var(--theme-radius-xl);
+}
+
+.dashboard-card,
+.dashboard-metric-card {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--theme-bg-panel) 92%, transparent) 0%,
+    color-mix(in srgb, var(--theme-bg-elevated) 96%, transparent) 100%
+  );
+  border: 1px solid var(--theme-border);
+  border-radius: var(--theme-radius-lg);
+  box-shadow: var(--theme-shadow-lg);
+  backdrop-filter: blur(var(--theme-backdrop-blur));
+}
+
+.dashboard-metric-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.dashboard-metric-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--theme-primary) 10%, transparent) 0%,
+    color-mix(in srgb, var(--theme-accent) 6%, transparent) 50%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+.dashboard-section-title {
+  font-family: var(--theme-font-family-heading);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: var(--theme-letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--theme-text-muted);
+}
+
+.dashboard-theme h1,
+.dashboard-theme h2,
+.dashboard-theme h3,
+.dashboard-theme h4,
+.dashboard-theme h5,
+.dashboard-theme h6 {
+  color: var(--theme-heading);
+  font-family: var(--theme-font-family-heading);
+}
+
+.dashboard-theme .muted,
+.dashboard-theme .secondary-text {
+  color: var(--theme-text-muted);
+}
+
+.dashboard-theme .panel-alt {
+  background: var(--theme-bg-panel-alt);
+  color: var(--theme-heading);
+}
+
+.dashboard-theme .accent {
+  color: var(--theme-accent);
+}
+
+.dashboard-theme .success {
+  color: var(--theme-success);
+}
+
+.dashboard-theme .warning {
+  color: var(--theme-warning);
+}
+
+.dashboard-theme .danger {
+  color: var(--theme-danger);
+}

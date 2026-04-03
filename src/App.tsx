@@ -1,0 +1,1433 @@
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import type { ParseIssue, StoredUsageRow, UsageRow } from "./types";
+import {
+  formatCurrency,
+  formatDisplayDate,
+  formatKwh,
+} from "./utils/formatters";
+import {
+  fromStoredUsageRow,
+  parseCsvFile,
+  toStoredUsageRow,
+} from "./utils/parsing";
+import {
+  fromStoredExportRow,
+  parseExportCsvFile,
+  toStoredExportRow,
+  type ExportRow,
+} from "./utils/exportParsing";
+import freeElectricityCredits from "./data/freeElectricityCredits";
+import { useProcessedData } from "./hooks/useProcessedData";
+import SummaryCard from "./components/SummaryCard";
+import ChartCard from "./components/ChartCard";
+import CustomTooltip from "./components/CustomTooltip";
+import UploadPanel from "./components/UploadPanel";
+import CostBreakdownTable from "./components/CostBreakdownTable";
+import ExportPrepTable from "./components/ExportPrepTable";
+import ExportUploadPanel from "./components/ExportUploadPanel";
+import CollapsibleSection from "./components/CollapsibleSection";
+import { defaultThemeId, getThemeById, themes } from "./theme";
+
+const STORAGE_KEY = "windfall-energy-dashboard-state-v3";
+
+type StoredDashboardState = {
+  rows?: StoredUsageRow[];
+  exportRows?: Array<{
+    date: string;
+    revenue: number;
+    inferredKwh: number | null;
+  }>;
+  fileNames?: string[];
+  exportFileNames?: string[];
+  appendMode?: boolean;
+  selectedThemeId?: string;
+};
+
+type MonthlyImportRow = {
+  displayMonth?: string;
+  kwh?: number;
+  totalCost?: number;
+  offPeakCost?: number;
+  peakCost?: number;
+  standing?: number;
+  offPeakPercent?: number;
+  peakPercent?: number;
+  standingPercent?: number;
+};
+
+type ExportPreparedMonth = {
+  displayMonth: string;
+  importCost: number;
+  exportRevenue: number | null;
+  exportKwh: number | null;
+  netPosition: number | null;
+  runningTotal: number | null;
+};
+
+function monthKeyFromDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+}
+
+function monthLabelFromDate(date: Date): string {
+  return date.toLocaleString("en-GB", {
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function monthKeyFromDisplayMonth(displayMonth: string): string {
+  const [monthLabel, yearLabel] = displayMonth.trim().split(/\s+/);
+  const monthMap: Record<string, string> = {
+    Jan: "01",
+    Feb: "02",
+    Mar: "03",
+    Apr: "04",
+    May: "05",
+    Jun: "06",
+    Jul: "07",
+    Aug: "08",
+    Sep: "09",
+    Oct: "10",
+    Nov: "11",
+    Dec: "12",
+  };
+
+  const month = monthMap[monthLabel] ?? "01";
+  const year = /^\d{4}$/.test(yearLabel ?? "") ? yearLabel : "1970";
+  return `${year}-${month}`;
+}
+
+function sortMonthKeysAscending(a: string, b: string): number {
+  return a.localeCompare(b);
+}
+
+function parseUkDateToMonthKey(value: string): string | null {
+  const match = value.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!match) return null;
+
+  const [, , mm, yyyy] = match;
+  return `${yyyy}-${mm}`;
+}
+
+export default function App() {
+  const [rows, setRows] = useState<UsageRow[]>([]);
+  const [exportRows, setExportRows] = useState<ExportRow[]>([]);
+  const [fileNames, setFileNames] = useState<string[]>([]);
+  const [exportFileNames, setExportFileNames] = useState<string[]>([]);
+  const [issues, setIssues] = useState<ParseIssue[]>([]);
+  const [appendMode, setAppendMode] = useState<boolean>(true);
+  const [selectedThemeId, setSelectedThemeId] =
+    useState<string>(defaultThemeId);
+  const [hasRestoredState, setHasRestoredState] = useState<boolean>(false);
+
+  const importInputRef = useRef<HTMLInputElement | null>(null);
+  const exportInputRef = useRef<HTMLInputElement | null>(null);
+
+  const theme = getThemeById(selectedThemeId);
+
+  const {
+    summary,
+    dailyData,
+    monthlyData,
+    hourlyData,
+    peakSplitData,
+    supplierComparison,
+  } = useProcessedData(rows);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        setHasRestoredState(true);
+        return;
+      }
+
+      const parsed = JSON.parse(raw) as StoredDashboardState;
+
+      const restoredRows = Array.isArray(parsed.rows)
+        ? parsed.rows
+            .map(fromStoredUsageRow)
+            .filter((row): row is UsageRow => row !== null)
+            .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
+        : [];
+
+      const restoredExportRows = Array.isArray(parsed.exportRows)
+        ? parsed.exportRows
+            .map(fromStoredExportRow)
+            .filter((row): row is ExportRow => row !== null)
+            .sort((a, b) => a.date.getTime() - b.date.getTime())
+        : [];
+
+      setRows(restoredRows);
+      setExportRows(restoredExportRows);
+      setFileNames(Array.isArray(parsed.fileNames) ? parsed.fileNames : []);
+      setExportFileNames(
+        Array.isArray(parsed.exportFileNames) ? parsed.exportFileNames : []
+      );
+      setAppendMode(
+        typeof parsed.appendMode === "boolean" ? parsed.appendMode : true
+      );
+      setSelectedThemeId(
+        typeof parsed.selectedThemeId === "string"
+          ? parsed.selectedThemeId
+          : defaultThemeId
+      );
+      setIssues([]);
+    } catch (error) {
+      console.error("Failed to restore saved dashboard state", error);
+      setRows([]);
+      setExportRows([]);
+      setFileNames([]);
+      setExportFileNames([]);
+      setIssues([]);
+      setAppendMode(true);
+      setSelectedThemeId(defaultThemeId);
+    } finally {
+      setHasRestoredState(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hasRestoredState) return;
+
+    try {
+      const payload: StoredDashboardState = {
+        rows: rows.map(toStoredUsageRow),
+        exportRows: exportRows.map(toStoredExportRow),
+        fileNames,
+        exportFileNames,
+        appendMode,
+        selectedThemeId,
+      };
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    } catch (error) {
+      console.error("Failed to save dashboard state", error);
+    }
+  }, [
+    rows,
+    exportRows,
+    fileNames,
+    exportFileNames,
+    appendMode,
+    selectedThemeId,
+    hasRestoredState,
+  ]);
+
+  useEffect(() => {
+    document.body.style.background = "transparent";
+  }, [theme]);
+
+  async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const selectedFiles = event.target.files;
+    if (!selectedFiles || selectedFiles.length === 0) return;
+
+    const files = Array.from(selectedFiles);
+    const newIssues: ParseIssue[] = [];
+    const parsedBatches: UsageRow[][] = [];
+
+    for (const file of files) {
+      try {
+        const processed = await parseCsvFile(file);
+        if (processed.length === 0) {
+          newIssues.push({
+            fileName: file.name,
+            message: "No valid electricity rows were found in this file.",
+          });
+        }
+        parsedBatches.push(processed);
+      } catch (error) {
+        newIssues.push({
+          fileName: file.name,
+          message:
+            error instanceof Error ? error.message : "Unknown parsing error.",
+        });
+      }
+    }
+
+    const combinedNewRows = parsedBatches.flat();
+    const baseRows = appendMode ? rows : [];
+
+    const dedupedMap = new Map<string, UsageRow>();
+    for (const row of [...baseRows, ...combinedNewRows]) {
+      const key = row.timestamp.toISOString();
+      dedupedMap.set(key, row);
+    }
+
+    const finalRows = Array.from(dedupedMap.values()).sort(
+      (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
+    );
+
+    const mergedFileNames = appendMode
+      ? Array.from(
+          new Set([...(fileNames ?? []), ...files.map((file) => file.name)])
+        ).sort()
+      : files.map((file) => file.name).sort();
+
+    setRows(finalRows);
+    setFileNames(mergedFileNames);
+    setIssues((previous) => [
+      ...(Array.isArray(previous) ? previous : []),
+      ...newIssues,
+    ]);
+
+    if (importInputRef.current) {
+      importInputRef.current.value = "";
+    }
+  }
+
+  async function handleExportFileUpload(
+    event: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const selectedFiles = event.target.files;
+    if (!selectedFiles || selectedFiles.length === 0) return;
+
+    const files = Array.from(selectedFiles);
+    const parsedBatches: ExportRow[][] = [];
+
+    for (const file of files) {
+      try {
+        const processed = await parseExportCsvFile(file);
+        parsedBatches.push(processed);
+      } catch (error) {
+        setIssues((previous) => [
+          ...(Array.isArray(previous) ? previous : []),
+          {
+            fileName: file.name,
+            message:
+              error instanceof Error
+                ? error.message
+                : "Unknown export parsing error.",
+          },
+        ]);
+      }
+    }
+
+    const combinedNewRows = parsedBatches.flat();
+    const dedupedMap = new Map<string, ExportRow>();
+
+    for (const row of [...exportRows, ...combinedNewRows]) {
+      const key = row.date.toISOString();
+      dedupedMap.set(key, row);
+    }
+
+    const finalRows = Array.from(dedupedMap.values()).sort(
+      (a, b) => a.date.getTime() - b.date.getTime()
+    );
+
+    const merged = Array.from(
+      new Set([...(exportFileNames ?? []), ...files.map((file) => file.name)])
+    ).sort();
+
+    setExportRows(finalRows);
+    setExportFileNames(merged);
+
+    if (exportInputRef.current) {
+      exportInputRef.current.value = "";
+    }
+  }
+
+  function clearImportData() {
+    setRows([]);
+    setFileNames([]);
+    setIssues([]);
+
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      const parsed = raw ? (JSON.parse(raw) as StoredDashboardState) : {};
+      window.localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          rows: [],
+          exportRows: Array.isArray(parsed.exportRows) ? parsed.exportRows : [],
+          fileNames: [],
+          exportFileNames: Array.isArray(parsed.exportFileNames)
+            ? parsed.exportFileNames
+            : [],
+          appendMode:
+            typeof parsed.appendMode === "boolean" ? parsed.appendMode : true,
+          selectedThemeId:
+            typeof parsed.selectedThemeId === "string"
+              ? parsed.selectedThemeId
+              : defaultThemeId,
+        })
+      );
+    } catch (error) {
+      console.error("Failed to clear saved import state", error);
+    }
+
+    if (importInputRef.current) {
+      importInputRef.current.value = "";
+    }
+  }
+
+  function clearExportData() {
+    setExportRows([]);
+    setExportFileNames([]);
+
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      const parsed = raw ? (JSON.parse(raw) as StoredDashboardState) : {};
+      window.localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          rows: Array.isArray(parsed.rows) ? parsed.rows : [],
+          exportRows: [],
+          fileNames: Array.isArray(parsed.fileNames) ? parsed.fileNames : [],
+          exportFileNames: [],
+          appendMode:
+            typeof parsed.appendMode === "boolean" ? parsed.appendMode : true,
+          selectedThemeId:
+            typeof parsed.selectedThemeId === "string"
+              ? parsed.selectedThemeId
+              : defaultThemeId,
+        })
+      );
+    } catch (error) {
+      console.error("Failed to clear saved export state", error);
+    }
+
+    if (exportInputRef.current) {
+      exportInputRef.current.value = "";
+    }
+  }
+
+  const freeCreditByMonth = useMemo(() => {
+    const map = new Map<string, number>();
+
+    for (const item of freeElectricityCredits) {
+      const key = parseUkDateToMonthKey(item.date);
+      if (!key) continue;
+
+      map.set(key, (map.get(key) ?? 0) + item.credit);
+    }
+
+    return map;
+  }, []);
+
+  const adjustedMonthlyData = useMemo(() => {
+    const safeMonthlyData = Array.isArray(monthlyData)
+      ? (monthlyData as MonthlyImportRow[])
+      : [];
+
+    return safeMonthlyData.map((row) => {
+      const displayMonth = row.displayMonth ?? "-";
+      const key = monthKeyFromDisplayMonth(displayMonth);
+
+      const freeCredit = freeCreditByMonth.get(key) ?? 0;
+
+      const originalPeakCost =
+        typeof row.peakCost === "number" && Number.isFinite(row.peakCost)
+          ? row.peakCost
+          : 0;
+
+      const originalOffPeakCost =
+        typeof row.offPeakCost === "number" && Number.isFinite(row.offPeakCost)
+          ? row.offPeakCost
+          : 0;
+
+      const originalStanding =
+        typeof row.standing === "number" && Number.isFinite(row.standing)
+          ? row.standing
+          : 0;
+
+      const adjustedPeakCost = Math.max(0, originalPeakCost - freeCredit);
+      const adjustedTotalCost =
+        originalOffPeakCost + adjustedPeakCost + originalStanding;
+
+      const adjustedOffPeakPercent =
+        adjustedTotalCost > 0
+          ? (originalOffPeakCost / adjustedTotalCost) * 100
+          : 0;
+
+      const adjustedPeakPercent =
+        adjustedTotalCost > 0 ? (adjustedPeakCost / adjustedTotalCost) * 100 : 0;
+
+      const adjustedStandingPercent =
+        adjustedTotalCost > 0 ? (originalStanding / adjustedTotalCost) * 100 : 0;
+
+      return {
+        ...row,
+        totalCost: adjustedTotalCost,
+        peakCost: adjustedPeakCost,
+        offPeakPercent: adjustedOffPeakPercent,
+        peakPercent: adjustedPeakPercent,
+        standingPercent: adjustedStandingPercent,
+      };
+    });
+  }, [monthlyData, freeCreditByMonth]);
+
+  const exportPreparedMonths: ExportPreparedMonth[] = useMemo(() => {
+    const importMonthMap = new Map<
+      string,
+      { displayMonth: string; importCost: number }
+    >();
+
+    const safeMonthlyData = Array.isArray(adjustedMonthlyData)
+      ? (adjustedMonthlyData as MonthlyImportRow[])
+      : [];
+
+    for (const row of safeMonthlyData) {
+      const displayMonth = row.displayMonth ?? "-";
+      const key = monthKeyFromDisplayMonth(displayMonth);
+      importMonthMap.set(key, {
+        displayMonth,
+        importCost:
+          typeof row.totalCost === "number" && Number.isFinite(row.totalCost)
+            ? row.totalCost
+            : 0,
+      });
+    }
+
+    const exportMonthMap = new Map<
+      string,
+      { displayMonth: string; exportRevenue: number; exportKwh: number }
+    >();
+
+    for (const row of exportRows) {
+      const key = monthKeyFromDate(row.date);
+      const existing = exportMonthMap.get(key);
+
+      if (existing) {
+        existing.exportRevenue += row.revenue;
+        existing.exportKwh += row.inferredKwh ?? 0;
+      } else {
+        exportMonthMap.set(key, {
+          displayMonth: monthLabelFromDate(row.date),
+          exportRevenue: row.revenue,
+          exportKwh: row.inferredKwh ?? 0,
+        });
+      }
+    }
+
+    const manualSeedMonths = [
+      {
+        key: "2025-11",
+        displayMonth: "Nov 2025",
+        exportRevenue: 31.68,
+        exportKwh: 132,
+      },
+      {
+        key: "2025-12",
+        displayMonth: "Dec 2025",
+        exportRevenue: 17.76,
+        exportKwh: 74,
+      },
+    ];
+
+    for (const seed of manualSeedMonths) {
+      if (!exportMonthMap.has(seed.key)) {
+        exportMonthMap.set(seed.key, {
+          displayMonth: seed.displayMonth,
+          exportRevenue: seed.exportRevenue,
+          exportKwh: seed.exportKwh,
+        });
+      }
+    }
+
+    const allKeys = Array.from(
+      new Set([...importMonthMap.keys(), ...exportMonthMap.keys()])
+    ).sort(sortMonthKeysAscending);
+
+    let runningTotal = 0;
+
+    return allKeys.map((key) => {
+      const importMonth = importMonthMap.get(key);
+      const exportMonth = exportMonthMap.get(key);
+
+      const importCost = importMonth?.importCost ?? 0;
+      const exportRevenue = exportMonth ? exportMonth.exportRevenue : null;
+      const exportKwh = exportMonth ? exportMonth.exportKwh : null;
+      const netPosition =
+        exportRevenue === null ? null : importCost - exportRevenue;
+
+      if (netPosition !== null) {
+        runningTotal += netPosition;
+      }
+
+      return {
+        displayMonth:
+          importMonth?.displayMonth ?? exportMonth?.displayMonth ?? key,
+        importCost,
+        exportRevenue,
+        exportKwh,
+        netPosition,
+        runningTotal,
+      };
+    });
+  }, [adjustedMonthlyData, exportRows]);
+
+  const monthlyNetChartData = useMemo(() => {
+    const importMap = new Map<
+      string,
+      {
+        displayMonth: string;
+        importCost: number;
+        importKwh: number;
+      }
+    >();
+
+    const safeAdjustedMonthlyData = Array.isArray(adjustedMonthlyData)
+      ? (adjustedMonthlyData as MonthlyImportRow[])
+      : [];
+
+    for (const row of safeAdjustedMonthlyData) {
+      const displayMonth = row.displayMonth ?? "-";
+      const key = monthKeyFromDisplayMonth(displayMonth);
+
+      importMap.set(key, {
+        displayMonth,
+        importCost:
+          typeof row.totalCost === "number" && Number.isFinite(row.totalCost)
+            ? row.totalCost
+            : 0,
+        importKwh:
+          typeof row.kwh === "number" && Number.isFinite(row.kwh) ? row.kwh : 0,
+      });
+    }
+
+    const exportMap = new Map<
+      string,
+      {
+        displayMonth: string;
+        exportRevenue: number;
+        exportKwh: number;
+      }
+    >();
+
+    for (const row of exportPreparedMonths) {
+      const key = monthKeyFromDisplayMonth(row.displayMonth);
+
+      exportMap.set(key, {
+        displayMonth: row.displayMonth,
+        exportRevenue:
+          typeof row.exportRevenue === "number" &&
+          Number.isFinite(row.exportRevenue)
+            ? row.exportRevenue
+            : 0,
+        exportKwh:
+          typeof row.exportKwh === "number" && Number.isFinite(row.exportKwh)
+            ? row.exportKwh
+            : 0,
+      });
+    }
+
+    const allKeys = Array.from(
+      new Set([...importMap.keys(), ...exportMap.keys()])
+    ).sort(sortMonthKeysAscending);
+
+    return allKeys.map((key) => {
+      const importMonth = importMap.get(key);
+      const exportMonth = exportMap.get(key);
+
+      const displayMonth =
+        importMonth?.displayMonth ?? exportMonth?.displayMonth ?? key;
+
+      const importCost = importMonth?.importCost ?? 0;
+      const importKwh = importMonth?.importKwh ?? 0;
+      const exportRevenue = exportMonth?.exportRevenue ?? 0;
+      const exportKwh = exportMonth?.exportKwh ?? 0;
+
+      return {
+        displayMonth,
+        netCost: importCost - exportRevenue,
+        netKwh: importKwh - exportKwh,
+      };
+    });
+  }, [adjustedMonthlyData, exportPreparedMonths]);
+
+  const safeFileNames = Array.isArray(fileNames) ? fileNames : [];
+  const safeExportFileNames = Array.isArray(exportFileNames)
+    ? exportFileNames
+    : [];
+  const safeIssues = Array.isArray(issues) ? issues : [];
+  const safeThemes = Array.isArray(themes) ? themes : [];
+
+  const compactHeroCardStyle: React.CSSProperties = {
+    ...theme.styles.heroCard,
+    padding: "14px 20px",
+    marginBottom: "12px",
+  };
+
+  const compactHeroInnerGridStyle: React.CSSProperties = {
+    ...theme.styles.heroInnerGrid,
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1.7fr) minmax(380px, 1fr)",
+    gap: "14px",
+    alignItems: "center",
+  };
+
+  const compactHeroTitleStyle: React.CSSProperties = {
+    ...theme.styles.heroTitle,
+    fontSize: "2.35rem",
+    lineHeight: 1.02,
+    marginBottom: "8px",
+  };
+
+  const compactHeroBodyStyle: React.CSSProperties = {
+    ...theme.styles.heroBody,
+    marginBottom: "10px",
+    fontSize: "0.98rem",
+    lineHeight: 1.35,
+  };
+
+  const compactHeroMetaCardStyle: React.CSSProperties = {
+    ...theme.styles.heroMetaCard,
+    padding: "12px 14px",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    minHeight: "100%",
+  };
+
+  const tariffGridStyle: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gap: "8px",
+    marginTop: "8px",
+  };
+
+  const tariffBlockStyle: React.CSSProperties = {
+    borderRadius: "14px",
+    padding: "10px 12px",
+    background: "rgba(255,255,255,0.35)",
+    border: "1px solid rgba(0,0,0,0.06)",
+    fontSize: "0.92rem",
+    lineHeight: 1.35,
+  };
+
+  const topWorkingRowStyle: React.CSSProperties =
+    rows.length > 0
+      ? {
+          display: "grid",
+          gridTemplateColumns: "30% 70%",
+          gap: "10px",
+          alignItems: "start",
+          marginBottom: "12px",
+        }
+      : {
+          ...theme.layout.uploadRow,
+        };
+
+  const utilityColumnStyle: React.CSSProperties = {
+    display: "grid",
+    gridTemplateRows: "auto auto",
+    gap: "10px",
+    alignItems: "start",
+  };
+
+  const summaryGridStyle: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gap: "10px",
+    alignItems: "stretch",
+  };
+
+  const sideBySideTableRowStyle: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: "14px",
+    alignItems: "start",
+    marginBottom: "14px",
+  };
+
+  return (
+    <div style={theme.styles.appShell}>
+      <style>{`
+        .windfall-table-compact table {
+          border-collapse: separate !important;
+          border-spacing: 0 !important;
+          width: 100%;
+        }
+
+        .windfall-table-compact th,
+        .windfall-table-compact td {
+          padding-top: 6px !important;
+          padding-bottom: 6px !important;
+          line-height: 1.2 !important;
+        }
+
+        .windfall-cost-table table thead tr:first-child th:nth-child(3),
+        .windfall-cost-table table thead tr:first-child th:nth-child(4),
+        .windfall-cost-table table thead tr:first-child th:nth-child(5) {
+          background: rgba(126, 211, 160, 0.10) !important;
+        }
+
+        .windfall-cost-table table thead tr:nth-child(2) th:nth-child(3),
+        .windfall-cost-table table tbody td:nth-child(3),
+        .windfall-cost-table table thead tr:nth-child(2) th:nth-child(4),
+        .windfall-cost-table table tbody td:nth-child(4) {
+          background: rgba(126, 211, 160, 0.12) !important;
+        }
+
+        .windfall-cost-table table thead tr:nth-child(2) th:nth-child(5),
+        .windfall-cost-table table tbody td:nth-child(5),
+        .windfall-cost-table table thead tr:nth-child(2) th:nth-child(6),
+        .windfall-cost-table table tbody td:nth-child(6) {
+          background: rgba(255, 171, 102, 0.12) !important;
+        }
+
+        .windfall-cost-table table thead tr:nth-child(2) th:nth-child(7),
+        .windfall-cost-table table tbody td:nth-child(7),
+        .windfall-cost-table table thead tr:nth-child(2) th:nth-child(8),
+        .windfall-cost-table table tbody td:nth-child(8) {
+          background: rgba(194, 140, 255, 0.12) !important;
+        }
+
+        .windfall-export-table table thead th:nth-child(2),
+        .windfall-export-table table tbody td:nth-child(2),
+        .windfall-export-table table thead th:nth-child(4),
+        .windfall-export-table table tbody td:nth-child(4),
+        .windfall-export-table table thead th:nth-child(6),
+        .windfall-export-table table tbody td:nth-child(6) {
+          background: rgba(80, 160, 255, 0.08) !important;
+        }
+
+        .windfall-export-table table thead th:nth-child(3),
+        .windfall-export-table table tbody td:nth-child(3),
+        .windfall-export-table table thead th:nth-child(5),
+        .windfall-export-table table tbody td:nth-child(5) {
+          background: rgba(80, 160, 255, 0.04) !important;
+        }
+
+        .windfall-compact-panel {
+          padding: 12px 14px !important;
+        }
+
+        .windfall-compact-panel h2 {
+          font-size: 0.92rem !important;
+          margin-bottom: 4px !important;
+        }
+
+        .windfall-compact-panel p {
+          font-size: 0.83rem !important;
+          margin-bottom: 8px !important;
+        }
+
+        .windfall-compact-panel button {
+          padding: 8px 12px !important;
+          font-size: 0.84rem !important;
+          border-radius: 10px !important;
+        }
+
+        .windfall-compact-panel input {
+          font-size: 0.84rem !important;
+        }
+
+        .windfall-compact-panel label {
+          font-size: 0.78rem !important;
+        }
+
+        .windfall-compact-panel .windfall-stat-card {
+          padding: 8px !important;
+          min-height: 72px !important;
+        }
+
+        .windfall-compact-panel .windfall-stat-value {
+          font-size: 1rem !important;
+          line-height: 1.05 !important;
+        }
+
+        .windfall-compact-panel .windfall-stat-label {
+          font-size: 0.64rem !important;
+        }
+
+        .windfall-summary-compact .windfall-summary-card-inner {
+          padding: 12px !important;
+        }
+
+        .windfall-summary-compact .windfall-summary-value {
+          font-size: 1.65rem !important;
+          line-height: 1.05 !important;
+        }
+
+        .windfall-summary-compact .windfall-summary-title {
+          font-size: 0.72rem !important;
+          letter-spacing: 0.14em !important;
+        }
+      `}</style>
+
+      <div style={theme.styles.pageContainer}>
+        <div style={compactHeroCardStyle}>
+          <div style={compactHeroInnerGridStyle}>
+            <div>
+              <h1 style={compactHeroTitleStyle}>
+                15 Windfall Electricity Dashboard
+              </h1>
+              <p style={compactHeroBodyStyle}>
+                This webapp presents analysis of the electricity usage and cost
+                for 15 Windfall Way since export of solar produced electricity
+                was introduced at the start of November 2025.
+              </p>
+
+              <div style={theme.components.themeSelector.wrapper}>
+                <label
+                  htmlFor="theme-selector-inline"
+                  style={theme.components.themeSelector.label}
+                >
+                  Theme
+                </label>
+
+                <div style={{ position: "relative" }}>
+                  <select
+                    id="theme-selector-inline"
+                    value={selectedThemeId}
+                    onChange={(e) => setSelectedThemeId(e.target.value)}
+                    style={theme.components.themeSelector.select}
+                    disabled={safeThemes.length === 0}
+                  >
+                    {safeThemes.length === 0 ? (
+                      <option value="">No themes available</option>
+                    ) : (
+                      safeThemes.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.label}
+                        </option>
+                      ))
+                    )}
+                  </select>
+
+                  <div style={theme.components.themeSelector.caret}>▼</div>
+                </div>
+              </div>
+            </div>
+
+            <div style={compactHeroMetaCardStyle}>
+              <div style={theme.styles.heroMetaTitle}>
+                Tariff Periods Configured
+              </div>
+
+              <div style={tariffGridStyle}>
+                <div style={tariffBlockStyle}>
+                  <div
+                    style={{
+                      fontSize: "0.76rem",
+                      letterSpacing: "0.12em",
+                      textTransform: "uppercase",
+                      opacity: 0.7,
+                      marginBottom: "5px",
+                    }}
+                  >
+                    Nov 2025 to Mar 2026
+                  </div>
+                  <div style={{ fontWeight: 700 }}>
+                    Off-peak 00:00–05:00 | 8.56p
+                  </div>
+                  <div style={{ marginTop: "3px" }}>
+                    Peak other times | 22.80p
+                  </div>
+                  <div style={{ marginTop: "3px" }}>Standing 59.53p/day</div>
+                </div>
+
+                <div style={tariffBlockStyle}>
+                  <div
+                    style={{
+                      fontSize: "0.76rem",
+                      letterSpacing: "0.12em",
+                      textTransform: "uppercase",
+                      opacity: 0.7,
+                      marginBottom: "5px",
+                    }}
+                  >
+                    Apr 2026 onwards
+                  </div>
+                  <div style={{ fontWeight: 700 }}>
+                    Off-peak 23:00–06:00 | 5.48p
+                  </div>
+                  <div style={{ marginTop: "3px" }}>
+                    Peak other times | 20.43p
+                  </div>
+                  <div style={{ marginTop: "3px" }}>Standing 62.51p/day</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style={topWorkingRowStyle}>
+          <div style={utilityColumnStyle}>
+            <UploadPanel
+              appendMode={appendMode}
+              onAppendModeChange={setAppendMode}
+              onClearData={clearImportData}
+              onFileChange={handleFileUpload}
+              inputRef={importInputRef}
+              fileNames={safeFileNames}
+              intervalCount={rows.length}
+              firstDate={
+                summary.firstDate ? formatDisplayDate(summary.firstDate) : null
+              }
+              lastDate={
+                summary.lastDate ? formatDisplayDate(summary.lastDate) : null
+              }
+              issues={safeIssues}
+              theme={theme}
+            />
+
+            <ExportUploadPanel
+              inputRef={exportInputRef}
+              onFileChange={handleExportFileUpload}
+              onClearData={clearExportData}
+              fileNames={safeExportFileNames}
+              theme={theme}
+            />
+          </div>
+
+          {rows.length > 0 && (
+            <div className="windfall-summary-compact">
+              <div style={summaryGridStyle}>
+                <SummaryCard
+                  title="Total Usage"
+                  value={formatKwh(summary.totalKwh)}
+                  accent={theme.tokens.colors.summaryBlue}
+                  theme={theme}
+                />
+                <SummaryCard
+                  title="Estimated Total Cost"
+                  value={formatCurrency(summary.totalCost)}
+                  accent={theme.tokens.colors.summaryGreen}
+                  theme={theme}
+                />
+                <SummaryCard
+                  title="Peak Cost"
+                  value={formatCurrency(summary.peakCost)}
+                  accent={theme.tokens.colors.summaryOrange}
+                  theme={theme}
+                />
+                <SummaryCard
+                  title="Off-Peak Cost"
+                  value={formatCurrency(summary.offPeakCost)}
+                  accent={theme.tokens.colors.summaryCyan}
+                  theme={theme}
+                />
+                <SummaryCard
+                  title="Standing Charge"
+                  value={formatCurrency(summary.standingChargeTotal)}
+                  accent={theme.tokens.colors.summaryPurple}
+                  theme={theme}
+                />
+                <SummaryCard
+                  title="Days Loaded"
+                  value={String(summary.dayCount)}
+                  accent={theme.tokens.colors.summarySlate}
+                  theme={theme}
+                />
+                <SummaryCard
+                  title="Average Daily Cost"
+                  value={formatCurrency(summary.averageDailyCost)}
+                  accent={theme.tokens.colors.summaryGreen}
+                  theme={theme}
+                />
+                <SummaryCard
+                  title="Average Daily Usage"
+                  value={formatKwh(summary.averageDailyUsage)}
+                  accent={theme.tokens.colors.summaryBlue}
+                  theme={theme}
+                />
+                <SummaryCard
+                  title="Peak Usage"
+                  value={formatKwh(summary.peakKwh)}
+                  accent={theme.tokens.colors.summaryOrange}
+                  theme={theme}
+                />
+                <SummaryCard
+                  title="Off-Peak Usage"
+                  value={formatKwh(summary.offPeakKwh)}
+                  accent={theme.tokens.colors.summaryCyan}
+                  theme={theme}
+                />
+                <SummaryCard
+                  title="First Date"
+                  value={
+                    summary.firstDate
+                      ? formatDisplayDate(summary.firstDate)
+                      : "-"
+                  }
+                  accent={theme.tokens.colors.summarySlate}
+                  theme={theme}
+                />
+                <SummaryCard
+                  title="Last Date"
+                  value={
+                    summary.lastDate ? formatDisplayDate(summary.lastDate) : "-"
+                  }
+                  accent={theme.tokens.colors.summarySlate}
+                  theme={theme}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {rows.length === 0 ? (
+          <div style={theme.styles.panelCard}>
+            <p style={theme.styles.sectionTitle as React.CSSProperties}>
+              No data loaded yet. Start by selecting your import CSV files.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div style={sideBySideTableRowStyle}>
+              <div className="windfall-table-compact windfall-cost-table">
+                <CostBreakdownTable
+                  monthlyData={adjustedMonthlyData}
+                  theme={theme}
+                />
+              </div>
+
+              <div className="windfall-table-compact windfall-export-table">
+                <ExportPrepTable
+                  exportPreparedMonths={exportPreparedMonths}
+                  exportFileNames={safeExportFileNames}
+                  theme={theme}
+                />
+              </div>
+            </div>
+
+            <div style={theme.layout.twoColumnCharts}>
+              <ChartCard title="Monthly Cost Breakdown" compact theme={theme}>
+                <ResponsiveContainer
+                  width="100%"
+                  height={theme.tokens.chart.mediumHeight}
+                >
+                  <BarChart data={monthlyData}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke={theme.charts.cartesianGridStroke}
+                    />
+                    <XAxis
+                      dataKey="displayMonth"
+                      tick={{ fontSize: theme.tokens.chart.tickFontSize }}
+                    />
+                    <YAxis
+                      tick={{ fontSize: theme.tokens.chart.tickFontSize }}
+                      unit=" £"
+                      width={theme.tokens.chart.yAxisWidthCurrency}
+                    />
+                    <Tooltip content={<CustomTooltip theme={theme} />} />
+                    <Legend />
+                    <Bar
+                      dataKey="offPeakCost"
+                      name="Off-Peak Cost"
+                      stackId="cost"
+                      fill={theme.tokens.colors.chartCyan}
+                    />
+                    <Bar
+                      dataKey="peakCost"
+                      name="Peak Cost"
+                      stackId="cost"
+                      fill={theme.tokens.colors.chartOrange}
+                    />
+                    <Bar
+                      dataKey="standing"
+                      name="Standing Charge"
+                      stackId="cost"
+                      fill={theme.tokens.colors.chartPurple}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
+
+              <ChartCard title="Monthly Usage Totals" compact theme={theme}>
+                <ResponsiveContainer
+                  width="100%"
+                  height={theme.tokens.chart.mediumHeight}
+                >
+                  <BarChart data={monthlyData}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke={theme.charts.cartesianGridStroke}
+                    />
+                    <XAxis
+                      dataKey="displayMonth"
+                      tick={{ fontSize: theme.tokens.chart.tickFontSize }}
+                    />
+                    <YAxis
+                      tick={{ fontSize: theme.tokens.chart.tickFontSize }}
+                      unit=" kWh"
+                      width={theme.tokens.chart.yAxisWidthKwh}
+                    />
+                    <Tooltip content={<CustomTooltip theme={theme} />} />
+                    <Legend />
+                    <Bar
+                      dataKey="kwh"
+                      name="Usage"
+                      fill={theme.tokens.colors.chartBlue}
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
+            </div>
+
+            <div style={theme.layout.twoColumnCharts}>
+              <ChartCard title="Monthly Net Cost" compact theme={theme}>
+                <ResponsiveContainer
+                  width="100%"
+                  height={theme.tokens.chart.mediumHeight}
+                >
+                  <BarChart data={monthlyNetChartData}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke={theme.charts.cartesianGridStroke}
+                    />
+                    <XAxis
+                      dataKey="displayMonth"
+                      tick={{ fontSize: theme.tokens.chart.tickFontSize }}
+                    />
+                    <YAxis
+                      tick={{ fontSize: theme.tokens.chart.tickFontSize }}
+                      unit=" £"
+                      width={theme.tokens.chart.yAxisWidthCurrency}
+                    />
+                    <ReferenceLine y={0} stroke="rgba(0,0,0,0.35)" />
+                    <Tooltip content={<CustomTooltip theme={theme} />} />
+                    <Legend />
+                    <Bar
+                      dataKey="netCost"
+                      name="Net Cost"
+                      fill={theme.tokens.colors.chartGreen}
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
+
+              <ChartCard title="Monthly Net Usage" compact theme={theme}>
+                <ResponsiveContainer
+                  width="100%"
+                  height={theme.tokens.chart.mediumHeight}
+                >
+                  <BarChart data={monthlyNetChartData}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke={theme.charts.cartesianGridStroke}
+                    />
+                    <XAxis
+                      dataKey="displayMonth"
+                      tick={{ fontSize: theme.tokens.chart.tickFontSize }}
+                    />
+                    <YAxis
+                      tick={{ fontSize: theme.tokens.chart.tickFontSize }}
+                      unit=" kWh"
+                      width={theme.tokens.chart.yAxisWidthKwh}
+                    />
+                    <ReferenceLine y={0} stroke="rgba(0,0,0,0.35)" />
+                    <Tooltip content={<CustomTooltip theme={theme} />} />
+                    <Legend />
+                    <Bar
+                      dataKey="netKwh"
+                      name="Net Usage"
+                      fill={theme.tokens.colors.chartBlue}
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
+            </div>
+
+            <CollapsibleSection
+              title="Detailed Daily Charts"
+              defaultOpen={false}
+              theme={theme}
+            >
+              <div style={theme.layout.detailedChartsGrid}>
+                <ChartCard title="Daily Usage" compact theme={theme}>
+                  <ResponsiveContainer
+                    width="100%"
+                    height={theme.tokens.chart.largeHeight}
+                  >
+                    <AreaChart data={dailyData}>
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke={theme.charts.cartesianGridStroke}
+                      />
+                      <XAxis
+                        dataKey="displayDate"
+                        tick={{ fontSize: theme.tokens.chart.tickFontSize }}
+                        minTickGap={24}
+                      />
+                      <YAxis
+                        tick={{ fontSize: theme.tokens.chart.tickFontSize }}
+                        unit=" kWh"
+                        width={theme.tokens.chart.yAxisWidthKwh}
+                      />
+                      <Tooltip content={<CustomTooltip theme={theme} />} />
+                      <Legend />
+                      <Area
+                        type="monotone"
+                        dataKey="kwh"
+                        name="Usage"
+                        stroke={theme.tokens.colors.chartBlue}
+                        fill={theme.tokens.colors.chartBlueFill}
+                        strokeWidth={3}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </ChartCard>
+
+                <ChartCard title="Peak Vs Off-Peak Split" compact theme={theme}>
+                  <ResponsiveContainer
+                    width="100%"
+                    height={theme.tokens.chart.largeHeight}
+                  >
+                    <PieChart>
+                      <Pie
+                        data={peakSplitData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="45%"
+                        outerRadius={86}
+                        label={({ name, percent }) =>
+                          `${name} ${(Number(percent) * 100).toFixed(1)}%`
+                        }
+                      >
+                        <Cell fill={theme.tokens.colors.chartCyan} />
+                        <Cell fill={theme.tokens.colors.chartOrange} />
+                      </Pie>
+                      <Tooltip
+                        formatter={(value: number) => formatKwh(Number(value))}
+                      />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </ChartCard>
+
+                <ChartCard title="Daily Cost" compact theme={theme}>
+                  <ResponsiveContainer
+                    width="100%"
+                    height={theme.tokens.chart.mediumHeight}
+                  >
+                    <LineChart data={dailyData}>
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke={theme.charts.cartesianGridStroke}
+                      />
+                      <XAxis
+                        dataKey="displayDate"
+                        tick={{ fontSize: theme.tokens.chart.tickFontSize }}
+                        minTickGap={24}
+                      />
+                      <YAxis
+                        tick={{ fontSize: theme.tokens.chart.tickFontSize }}
+                        unit=" £"
+                        width={theme.tokens.chart.yAxisWidthCurrency}
+                      />
+                      <Tooltip content={<CustomTooltip theme={theme} />} />
+                      <Legend />
+                      <Line
+                        type="monotone"
+                        dataKey="totalCost"
+                        name="Total Cost"
+                        stroke={theme.tokens.colors.chartGreen}
+                        strokeWidth={3}
+                        dot={dailyData.length <= 12}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="peakCost"
+                        name="Peak Cost"
+                        stroke={theme.tokens.colors.chartOrange}
+                        strokeWidth={2}
+                        dot={false}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="offPeakCost"
+                        name="Off-Peak Cost"
+                        stroke={theme.tokens.colors.chartCyan}
+                        strokeWidth={2}
+                        dot={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </ChartCard>
+
+                <ChartCard title="Hourly Usage Profile" compact theme={theme}>
+                  <ResponsiveContainer
+                    width="100%"
+                    height={theme.tokens.chart.smallHeight}
+                  >
+                    <BarChart data={hourlyData}>
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke={theme.charts.cartesianGridStroke}
+                      />
+                      <XAxis
+                        dataKey="hour"
+                        interval={1}
+                        angle={-45}
+                        textAnchor="end"
+                        height={64}
+                        tick={{ fontSize: theme.tokens.chart.tickFontSize }}
+                      />
+                      <YAxis
+                        tick={{ fontSize: theme.tokens.chart.tickFontSize }}
+                        unit=" kWh"
+                        width={theme.tokens.chart.yAxisWidthKwh}
+                      />
+                      <Tooltip content={<CustomTooltip theme={theme} />} />
+                      <Bar
+                        dataKey="kwh"
+                        name="Usage"
+                        fill={theme.tokens.colors.chartPurple}
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </ChartCard>
+              </div>
+            </CollapsibleSection>
+
+            {supplierComparison && (
+              <div
+                style={{
+                  ...theme.styles.panelCard,
+                  ...theme.layout.summarySectionSpacing,
+                }}
+              >
+                <h2 style={theme.styles.sectionTitle}>
+                  Supplier Cost Comparison
+                </h2>
+                <div style={theme.styles.bodyText}>
+                  Supplier usage cost in CSV:{" "}
+                  <strong>
+                    {formatCurrency(supplierComparison.supplierUsageCost)}
+                  </strong>
+                  <br />
+                  App recalculated usage cost:{" "}
+                  <strong>{formatCurrency(summary.usageCost)}</strong>
+                  <br />
+                  Difference:{" "}
+                  <strong>
+                    {formatCurrency(supplierComparison.difference)}
+                  </strong>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
