@@ -5,15 +5,12 @@ export function getThemeCssVariables(theme: DashboardTheme): Record<string, stri
   const typography = theme.tokens?.typography;
   const radii = theme.tokens?.radii;
   const shadows = theme.tokens?.shadows;
-  const effects = theme.tokens?.effects;
   const layout = theme.layout;
 
   const primary = colors?.primary ?? "#4f46e5";
   const accent = colors?.accent ?? "#22c55e";
   const success = colors?.success ?? "#22c55e";
   const warning = colors?.warning ?? "#f59e0b";
-
-  const chartSeries = colors?.chartSeries ?? [primary, accent, success, warning];
 
   return {
     "--theme-bg": colors?.bg ?? "#0b1020",
@@ -30,12 +27,12 @@ export function getThemeCssVariables(theme: DashboardTheme): Record<string, stri
     "--theme-success": success,
     "--theme-warning": warning,
     "--theme-danger": colors?.danger ?? "#ef4444",
-    "--theme-chart-grid": colors?.chartGrid ?? "rgba(255,255,255,0.08)",
-    "--theme-chart-axis": colors?.chartAxis ?? "rgba(255,255,255,0.45)",
-    "--theme-chart-series-1": chartSeries[0] ?? primary,
-    "--theme-chart-series-2": chartSeries[1] ?? accent,
-    "--theme-chart-series-3": chartSeries[2] ?? success,
-    "--theme-chart-series-4": chartSeries[3] ?? warning,
+    "--theme-chart-grid": "rgba(255,255,255,0.08)",
+    "--theme-chart-axis": "rgba(255,255,255,0.45)",
+    "--theme-chart-series-1": primary,
+    "--theme-chart-series-2": accent,
+    "--theme-chart-series-3": success,
+    "--theme-chart-series-4": warning,
 
     "--theme-font-family-base":
       typography?.fontFamilyBase ??
@@ -48,19 +45,19 @@ export function getThemeCssVariables(theme: DashboardTheme): Record<string, stri
       '"JetBrains Mono", "SFMono-Regular", Consolas, monospace',
     "--theme-letter-spacing-caps": typography?.letterSpacingCaps ?? "0.08em",
 
-    "--theme-radius-sm": radii?.sm ?? "8px",
-    "--theme-radius-md": radii?.md ?? "12px",
-    "--theme-radius-lg": radii?.lg ?? "20px",
-    "--theme-radius-xl": radii?.xl ?? "28px",
-    "--theme-radius-pill": radii?.pill ?? "999px",
+    "--theme-radius-sm": radii?.sm != null ? `${radii.sm}px` : "8px",
+    "--theme-radius-md": radii?.md != null ? `${radii.md}px` : "12px",
+    "--theme-radius-lg": radii?.lg != null ? `${radii.lg}px` : "20px",
+    "--theme-radius-xl": radii?.xl != null ? `${radii.xl}px` : "28px",
+    "--theme-radius-pill": radii?.pill != null ? `${radii.pill}px` : "999px",
 
     "--theme-shadow-sm": shadows?.sm ?? "0 4px 12px rgba(0,0,0,0.12)",
     "--theme-shadow-md": shadows?.md ?? "0 10px 24px rgba(0,0,0,0.18)",
     "--theme-shadow-lg": shadows?.lg ?? "0 16px 40px rgba(0,0,0,0.24)",
     "--theme-shadow-glow": shadows?.glow ?? "0 0 0 1px rgba(255,255,255,0.04)",
 
-    "--theme-backdrop-blur": effects?.backdropBlur ?? "12px",
-    "--theme-panel-opacity": String(effects?.panelOpacity ?? 0.92),
+    "--theme-backdrop-blur": "12px",
+    "--theme-panel-opacity": "0.92",
 
     "--theme-page-max-width": layout?.pageMaxWidth ?? "1440px",
     "--theme-sidebar-width": layout?.sidebarWidth ?? "280px",

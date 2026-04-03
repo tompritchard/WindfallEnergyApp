@@ -666,6 +666,8 @@ export default function App() {
     });
   }, [adjustedMonthlyData, exportPreparedMonths]);
 
+  if (!theme) return null;
+
   const safeFileNames = Array.isArray(fileNames) ? fileNames : [];
   const safeExportFileNames = Array.isArray(exportFileNames)
     ? exportFileNames
@@ -1284,7 +1286,7 @@ export default function App() {
                         <Cell fill={theme.tokens.colors.chartOrange} />
                       </Pie>
                       <Tooltip
-                        formatter={(value: number) => formatKwh(Number(value))}
+                        formatter={(value) => formatKwh(Number(value ?? 0))}
                       />
                       <Legend />
                     </PieChart>

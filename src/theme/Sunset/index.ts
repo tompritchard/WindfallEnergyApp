@@ -58,7 +58,7 @@ const theme: ThemeDefinition = {
       marginBottom: "18px",
       fontSize: `${tokens.typography.heroBodySize}px`,
       lineHeight: 1.6,
-      color: tokens.colors.textSecondary ?? tokens.colors.textMuted,
+      color: tokens.colors.textMuted,
       maxWidth: "820px",
     },
 

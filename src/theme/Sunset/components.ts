@@ -1,3 +1,5 @@
+import type { DashboardTheme } from "../types";
+
 const glassPanel =
   "linear-gradient(180deg, rgba(255,250,245,0.78) 0%, rgba(255,243,234,0.72) 100%)";
 
@@ -447,4 +449,4 @@ const components = {
   },
 };
 
-export default components;
+export default components as DashboardTheme["components"];

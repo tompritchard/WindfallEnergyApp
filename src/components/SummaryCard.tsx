@@ -1,4 +1,3 @@
-import React from "react";
 import type { DashboardTheme } from "../theme";
 
 type SummaryCardProps = {

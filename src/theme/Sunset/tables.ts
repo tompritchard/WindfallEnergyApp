@@ -1,6 +1,4 @@
-import type { ThemeTables } from "../types";
-
-export const tables: ThemeTables = {
+export const tables = {
   dense: false,
   striped: true,
   hoverHighlight: true,

@@ -61,7 +61,7 @@ export function processCsvRows(rows: CsvRow[], fileName: string): UsageRow[] {
             : undefined,
       } satisfies UsageRow;
     })
-    .filter((row): row is UsageRow => row !== null);
+    .filter((row) => row !== null) as UsageRow[];
 }
 
 export function parseCsvFile(file: File): Promise<UsageRow[]> {
@@ -69,14 +69,14 @@ export function parseCsvFile(file: File): Promise<UsageRow[]> {
     Papa.parse<CsvRow>(file, {
       header: true,
       skipEmptyLines: true,
-      complete: (results) => {
+      complete: (results: { data: CsvRow[] }) => {
         try {
           resolve(processCsvRows(results.data, file.name));
         } catch (error) {
           reject(error);
         }
       },
-      error: (error) => reject(error),
+      error: (error: Error) => reject(error),
     });
   });
 }
