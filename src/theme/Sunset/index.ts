@@ -15,16 +15,16 @@ const theme: ThemeDefinition = {
       color: tokens.colors.text,
       fontFamily: tokens.typography.fontFamilyBase,
       background: appBackground,
-      padding: "16px",
+      padding: "10px",
     },
 
     pageContainer: {
       maxWidth: layout.pageMaxWidth,
       width: "100%",
       margin: "0 auto",
-      padding: "8px 8px 20px",
+      padding: "4px 6px 8px",
       display: "grid",
-      gap: "20px",
+      gap: "10px",
     },
 
     heroCard: {

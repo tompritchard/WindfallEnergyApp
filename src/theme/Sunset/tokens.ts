@@ -59,12 +59,12 @@ const tokens = {
   },
 
   spacing: {
-    xs: 6,
-    sm: 10,
-    md: 16,
-    lg: 24,
-    xl: 32,
-    xxl: 40,
+    xs: 4,
+    sm: 8,
+    md: 10,
+    lg: 14,
+    xl: 24,
+    xxl: 32,
   },
 
   shadows: {
@@ -75,12 +75,12 @@ const tokens = {
   },
 
   chart: {
-    smallHeight: 220,
-    mediumHeight: 260,
-    largeHeight: 320,
-    tickFontSize: 12,
-    yAxisWidthCurrency: 60,
-    yAxisWidthKwh: 50,
+    smallHeight: 130,
+    mediumHeight: 150,
+    largeHeight: 190,
+    tickFontSize: 11,
+    yAxisWidthCurrency: 52,
+    yAxisWidthKwh: 46,
   },
 };
 

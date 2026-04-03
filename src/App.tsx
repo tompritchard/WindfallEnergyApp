@@ -664,35 +664,34 @@ export default function App() {
 
   const compactHeroCardStyle: React.CSSProperties = {
     ...theme.styles.heroCard,
-    padding: "14px 20px",
-    marginBottom: "12px",
+    padding: "10px 16px",
   };
 
   const compactHeroInnerGridStyle: React.CSSProperties = {
     ...theme.styles.heroInnerGrid,
     display: "grid",
-    gridTemplateColumns: "minmax(0, 1.7fr) minmax(380px, 1fr)",
-    gap: "14px",
+    gridTemplateColumns: "minmax(0, 1.7fr) minmax(340px, 1fr)",
+    gap: "10px",
     alignItems: "center",
   };
 
   const compactHeroTitleStyle: React.CSSProperties = {
     ...theme.styles.heroTitle,
-    fontSize: "2.35rem",
+    fontSize: "1.75rem",
     lineHeight: 1.02,
-    marginBottom: "8px",
+    marginBottom: "4px",
   };
 
   const compactHeroBodyStyle: React.CSSProperties = {
     ...theme.styles.heroBody,
-    marginBottom: "10px",
-    fontSize: "0.98rem",
-    lineHeight: 1.35,
+    marginBottom: "6px",
+    fontSize: "0.8rem",
+    lineHeight: 1.2,
   };
 
   const compactHeroMetaCardStyle: React.CSSProperties = {
     ...theme.styles.heroMetaCard,
-    padding: "12px 14px",
+    padding: "8px 12px",
     display: "flex",
     flexDirection: "column",
     justifyContent: "center",
@@ -702,27 +701,26 @@ export default function App() {
   const tariffGridStyle: React.CSSProperties = {
     display: "grid",
     gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    gap: "8px",
-    marginTop: "8px",
+    gap: "6px",
+    marginTop: "6px",
   };
 
   const tariffBlockStyle: React.CSSProperties = {
-    borderRadius: "14px",
-    padding: "10px 12px",
+    borderRadius: "10px",
+    padding: "7px 10px",
     background: "rgba(255,255,255,0.35)",
     border: "1px solid rgba(0,0,0,0.06)",
-    fontSize: "0.92rem",
-    lineHeight: 1.35,
+    fontSize: "0.78rem",
+    lineHeight: 1.3,
   };
 
   const topWorkingRowStyle: React.CSSProperties =
     rows.length > 0
       ? {
           display: "grid",
-          gridTemplateColumns: "30% 70%",
-          gap: "10px",
+          gridTemplateColumns: "28% 72%",
+          gap: "8px",
           alignItems: "start",
-          marginBottom: "12px",
         }
       : {
           ...theme.layout.uploadRow,
@@ -731,23 +729,29 @@ export default function App() {
   const utilityColumnStyle: React.CSSProperties = {
     display: "grid",
     gridTemplateRows: "auto auto",
-    gap: "10px",
+    gap: "8px",
     alignItems: "start",
   };
 
   const summaryGridStyle: React.CSSProperties = {
     display: "grid",
-    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-    gap: "10px",
+    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+    gap: "8px",
     alignItems: "stretch",
   };
 
   const sideBySideTableRowStyle: React.CSSProperties = {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
-    gap: "14px",
+    gap: "10px",
     alignItems: "start",
-    marginBottom: "14px",
+  };
+
+  const fourColumnChartsStyle: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+    gap: "10px",
+    alignItems: "start",
   };
 
   return (
@@ -809,60 +813,8 @@ export default function App() {
           background: rgba(80, 160, 255, 0.04) !important;
         }
 
-        .windfall-compact-panel {
-          padding: 12px 14px !important;
-        }
-
-        .windfall-compact-panel h2 {
-          font-size: 0.92rem !important;
-          margin-bottom: 4px !important;
-        }
-
-        .windfall-compact-panel p {
-          font-size: 0.83rem !important;
-          margin-bottom: 8px !important;
-        }
-
-        .windfall-compact-panel button {
-          padding: 8px 12px !important;
-          font-size: 0.84rem !important;
-          border-radius: 10px !important;
-        }
-
-        .windfall-compact-panel input {
-          font-size: 0.84rem !important;
-        }
-
-        .windfall-compact-panel label {
-          font-size: 0.78rem !important;
-        }
-
         .windfall-compact-panel .windfall-stat-card {
-          padding: 8px !important;
-          min-height: 72px !important;
-        }
-
-        .windfall-compact-panel .windfall-stat-value {
-          font-size: 1rem !important;
-          line-height: 1.05 !important;
-        }
-
-        .windfall-compact-panel .windfall-stat-label {
-          font-size: 0.64rem !important;
-        }
-
-        .windfall-summary-compact .windfall-summary-card-inner {
-          padding: 12px !important;
-        }
-
-        .windfall-summary-compact .windfall-summary-value {
-          font-size: 1.65rem !important;
-          line-height: 1.05 !important;
-        }
-
-        .windfall-summary-compact .windfall-summary-title {
-          font-size: 0.72rem !important;
-          letter-spacing: 0.14em !important;
+          min-height: 44px !important;
         }
       `}</style>
 
@@ -920,11 +872,11 @@ export default function App() {
                 <div style={tariffBlockStyle}>
                   <div
                     style={{
-                      fontSize: "0.76rem",
-                      letterSpacing: "0.12em",
+                      fontSize: "0.68rem",
+                      letterSpacing: "0.1em",
                       textTransform: "uppercase",
                       opacity: 0.7,
-                      marginBottom: "5px",
+                      marginBottom: "3px",
                     }}
                   >
                     Nov 2025 to Mar 2026
@@ -941,11 +893,11 @@ export default function App() {
                 <div style={tariffBlockStyle}>
                   <div
                     style={{
-                      fontSize: "0.76rem",
-                      letterSpacing: "0.12em",
+                      fontSize: "0.68rem",
+                      letterSpacing: "0.1em",
                       textTransform: "uppercase",
                       opacity: 0.7,
-                      marginBottom: "5px",
+                      marginBottom: "3px",
                     }}
                   >
                     Apr 2026 onwards
@@ -1103,7 +1055,7 @@ export default function App() {
               </div>
             </div>
 
-            <div style={theme.layout.twoColumnCharts}>
+            <div style={fourColumnChartsStyle}>
               <ChartCard title="Monthly Cost Breakdown" compact theme={theme}>
                 <ResponsiveContainer
                   width="100%"
@@ -1177,9 +1129,7 @@ export default function App() {
                   </BarChart>
                 </ResponsiveContainer>
               </ChartCard>
-            </div>
 
-            <div style={theme.layout.twoColumnCharts}>
               <ChartCard title="Monthly Net Cost" compact theme={theme}>
                 <ResponsiveContainer
                   width="100%"

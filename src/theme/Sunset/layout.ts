@@ -1,8 +1,8 @@
 const layout = {
   pageMaxWidth: "1760px",
   sidebarWidth: "280px",
-  contentGap: "20px",
-  cardGap: "20px",
+  contentGap: "10px",
+  cardGap: "10px",
 
   uploadRow: {
     display: "grid",
@@ -31,14 +31,14 @@ const layout = {
   twoColumnCharts: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
-    gap: "20px",
+    gap: "10px",
     alignItems: "start",
   },
 
   detailedChartsGrid: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
-    gap: "20px",
+    gap: "10px",
     alignItems: "start",
   },
 
