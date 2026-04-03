@@ -729,7 +729,7 @@ export default function App() {
     rows.length > 0
       ? {
           display: "grid",
-          gridTemplateColumns: "28% 72%",
+          gridTemplateColumns: "28fr 72fr",
           gap: "8px",
           alignItems: "stretch",
         }
