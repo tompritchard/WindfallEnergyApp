@@ -13,25 +13,25 @@ type ExportUploadPanelProps = {
 };
 
 const statsRowStyle: React.CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: "8px",
-  alignItems: "center",
-  fontSize: "11px",
-  color: "#7b6558",
+  display: "grid",
+  gridTemplateColumns: "18% 27% 30% 25%",
   background: "rgba(255,250,245,0.5)",
   border: "1px solid rgba(91,62,46,0.08)",
   borderRadius: "8px",
   padding: "5px 10px",
 };
 
+const statCellStyle: React.CSSProperties = {
+  fontSize: "11px",
+  color: "#7b6558",
+};
+
 const statValueStyle: React.CSSProperties = {
   fontWeight: 700,
   color: "#201714",
   fontSize: "12px",
+  marginLeft: "8px",
 };
-
-const sepStyle: React.CSSProperties = { opacity: 0.3, userSelect: "none" };
 
 export default function ExportUploadPanel({
   inputRef,
@@ -84,13 +84,10 @@ export default function ExportUploadPanel({
       </div>
 
       <div style={statsRowStyle}>
-        <span>Files <strong style={statValueStyle}>{fileNames.length}</strong></span>
-        <span style={sepStyle}>·</span>
-        <span>Intervals <strong style={statValueStyle}>{intervalCount.toLocaleString()}</strong></span>
-        <span style={sepStyle}>·</span>
-        <span>From <strong style={statValueStyle}>{firstDate ?? "–"}</strong></span>
-        <span style={sepStyle}>·</span>
-        <span>To <strong style={statValueStyle}>{lastDate ?? "–"}</strong></span>
+        <span style={statCellStyle}>Files <strong style={statValueStyle}>{fileNames.length}</strong></span>
+        <span style={statCellStyle}>Intervals <strong style={statValueStyle}>{intervalCount.toLocaleString()}</strong></span>
+        <span style={statCellStyle}>From <strong style={statValueStyle}>{firstDate ?? "–"}</strong></span>
+        <span style={statCellStyle}>To <strong style={statValueStyle}>{lastDate ?? "–"}</strong></span>
       </div>
     </section>
   );
