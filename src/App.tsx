@@ -20,6 +20,7 @@ import {
 import type { ParseIssue, StoredUsageRow, UsageRow } from "./types";
 import {
   formatCurrency,
+  formatDateKey,
   formatDisplayDate,
   formatKwh,
 } from "./utils/formatters";
@@ -720,7 +721,7 @@ export default function App() {
           display: "grid",
           gridTemplateColumns: "28% 72%",
           gap: "8px",
-          alignItems: "start",
+          alignItems: "stretch",
         }
       : {
           ...theme.layout.uploadRow,
@@ -728,9 +729,8 @@ export default function App() {
 
   const utilityColumnStyle: React.CSSProperties = {
     display: "grid",
-    gridTemplateRows: "auto auto",
+    gridTemplateRows: "1fr 1fr",
     gap: "8px",
-    alignItems: "start",
   };
 
   const summaryGridStyle: React.CSSProperties = {
@@ -738,6 +738,7 @@ export default function App() {
     gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
     gap: "8px",
     alignItems: "stretch",
+    height: "100%",
   };
 
   const sideBySideTableRowStyle: React.CSSProperties = {
@@ -940,12 +941,15 @@ export default function App() {
               onFileChange={handleExportFileUpload}
               onClearData={clearExportData}
               fileNames={safeExportFileNames}
+              intervalCount={exportRows.length}
+              firstDate={exportRows.length > 0 ? formatDisplayDate(formatDateKey(exportRows[0].date)) : null}
+              lastDate={exportRows.length > 0 ? formatDisplayDate(formatDateKey(exportRows[exportRows.length - 1].date)) : null}
               theme={theme}
             />
           </div>
 
           {rows.length > 0 && (
-            <div className="windfall-summary-compact">
+            <div className="windfall-summary-compact" style={{ height: "100%" }}>
               <div style={summaryGridStyle}>
                 <SummaryCard
                   title="Total Usage"

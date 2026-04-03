@@ -6,14 +6,41 @@ type ExportUploadPanelProps = {
   onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onClearData: () => void;
   fileNames: string[];
+  intervalCount: number;
+  firstDate: string | null;
+  lastDate: string | null;
   theme: DashboardTheme;
 };
+
+const statsRowStyle: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "8px",
+  alignItems: "center",
+  fontSize: "11px",
+  color: "#7b6558",
+  background: "rgba(255,250,245,0.5)",
+  border: "1px solid rgba(91,62,46,0.08)",
+  borderRadius: "8px",
+  padding: "5px 10px",
+};
+
+const statValueStyle: React.CSSProperties = {
+  fontWeight: 700,
+  color: "#201714",
+  fontSize: "12px",
+};
+
+const sepStyle: React.CSSProperties = { opacity: 0.3, userSelect: "none" };
 
 export default function ExportUploadPanel({
   inputRef,
   onFileChange,
   onClearData,
   fileNames,
+  intervalCount,
+  firstDate,
+  lastDate,
   theme,
 }: ExportUploadPanelProps) {
   const ui = theme.components.uploadPanel;
@@ -23,9 +50,6 @@ export default function ExportUploadPanel({
       <div style={ui.topRow}>
         <div>
           <h2 style={ui.title}>Export data</h2>
-          <p style={ui.body}>
-            Upload one or more electricity export CSV files.
-          </p>
         </div>
 
         <button type="button" onClick={onClearData} style={ui.ghostButton}>
@@ -39,7 +63,6 @@ export default function ExportUploadPanel({
           gap: theme.tokens.spacing.sm,
           flexWrap: "wrap",
           alignItems: "center",
-          marginBottom: "8px",
         }}
       >
         <button
@@ -60,41 +83,14 @@ export default function ExportUploadPanel({
         />
       </div>
 
-      <div
-        style={{
-          ...ui.statsGrid,
-          gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-          gap: "8px",
-        }}
-      >
-        <div style={ui.statCard} className="windfall-stat-card">
-          <div style={ui.statLabel} className="windfall-stat-label">
-            Files loaded
-          </div>
-          <div style={ui.statValue} className="windfall-stat-value">
-            {fileNames.length}
-          </div>
-        </div>
-
-        <div style={ui.statCard} className="windfall-stat-card">
-          <div style={ui.statLabel} className="windfall-stat-label">
-            Export type
-          </div>
-          <div style={ui.statBody}>
-            <div>Solar export</div>
-            <div>CSV import</div>
-          </div>
-        </div>
-
-        <div style={ui.statCard} className="windfall-stat-card">
-          <div style={ui.statLabel} className="windfall-stat-label">
-            Status
-          </div>
-          <div style={ui.statBody}>
-            <div>{fileNames.length > 0 ? "Files loaded" : "No files loaded"}</div>
-            <div>{fileNames.length > 0 ? "Ready" : "-"}</div>
-          </div>
-        </div>
+      <div style={statsRowStyle}>
+        <span>Files <strong style={statValueStyle}>{fileNames.length}</strong></span>
+        <span style={sepStyle}>·</span>
+        <span>Intervals <strong style={statValueStyle}>{intervalCount.toLocaleString()}</strong></span>
+        <span style={sepStyle}>·</span>
+        <span>From <strong style={statValueStyle}>{firstDate ?? "–"}</strong></span>
+        <span style={sepStyle}>·</span>
+        <span>To <strong style={statValueStyle}>{lastDate ?? "–"}</strong></span>
       </div>
     </section>
   );
