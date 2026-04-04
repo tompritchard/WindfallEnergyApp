@@ -139,6 +139,11 @@ export default function App() {
   const [issues, setIssues] = useState<ParseIssue[]>([]);
   const [appendMode, setAppendMode] = useState<boolean>(true);
   const [exportAppendMode, setExportAppendMode] = useState<boolean>(true);
+  const [mobileUploadVisible, setMobileUploadVisible] =
+    useState<boolean>(false);
+  const [windowWidth, setWindowWidth] = useState<number>(
+    typeof window !== "undefined" ? window.innerWidth : 1280
+  );
   const [selectedThemeId, setSelectedThemeId] =
     useState<string>(defaultThemeId);
   const [hasRestoredState, setHasRestoredState] = useState<boolean>(false);
@@ -245,6 +250,12 @@ export default function App() {
   useEffect(() => {
     document.body.style.background = "transparent";
   }, [theme]);
+
+  useEffect(() => {
+    const handler = () => setWindowWidth(window.innerWidth);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
 
   // Sync from server once after localStorage restore
   useEffect(() => {
@@ -749,6 +760,8 @@ export default function App() {
 
   if (!theme) return null;
 
+  const isMobile = windowWidth <= 768;
+
   const safeFileNames = Array.isArray(fileNames) ? fileNames : [];
   const safeExportFileNames = Array.isArray(exportFileNames)
     ? exportFileNames
@@ -764,15 +777,15 @@ export default function App() {
   const compactHeroInnerGridStyle: React.CSSProperties = {
     ...theme.styles.heroInnerGrid,
     display: "grid",
-    gridTemplateColumns: "minmax(0, 1.7fr) minmax(340px, 1fr)",
+    gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1.7fr) minmax(340px, 1fr)",
     gap: "10px",
-    alignItems: "center",
+    alignItems: isMobile ? "start" : "center",
   };
 
   const compactHeroTitleStyle: React.CSSProperties = {
     ...theme.styles.heroTitle,
-    fontSize: "1.75rem",
-    lineHeight: 1.02,
+    fontSize: isMobile ? "1.3rem" : "1.75rem",
+    lineHeight: 1.1,
     marginBottom: "4px",
   };
 
@@ -781,6 +794,7 @@ export default function App() {
     marginBottom: "6px",
     fontSize: "0.8rem",
     lineHeight: 1.2,
+    display: isMobile ? "none" : undefined,
   };
 
   const compactHeroMetaCardStyle: React.CSSProperties = {
@@ -789,7 +803,7 @@ export default function App() {
     display: "flex",
     flexDirection: "column",
     justifyContent: "center",
-    minHeight: "100%",
+    minHeight: isMobile ? "auto" : "100%",
   };
 
   const tariffGridStyle: React.CSSProperties = {
@@ -808,45 +822,44 @@ export default function App() {
     lineHeight: 1.3,
   };
 
-  const topWorkingRowStyle: React.CSSProperties =
-    rows.length > 0
-      ? {
-          display: "grid",
-          gridTemplateColumns: "28fr 72fr",
-          gap: "8px",
-          alignItems: "stretch",
-        }
-      : {
-          ...theme.layout.uploadRow,
-        };
+  const topWorkingRowStyle: React.CSSProperties = isMobile
+    ? { display: "grid", gridTemplateColumns: "1fr", gap: "8px" }
+    : rows.length > 0
+    ? { display: "grid", gridTemplateColumns: "28fr 72fr", gap: "8px", alignItems: "stretch" }
+    : { ...theme.layout.uploadRow };
 
   const utilityColumnStyle: React.CSSProperties = {
     display: "grid",
-    gridTemplateRows: "1fr 1fr",
+    gridTemplateRows: isMobile ? "auto auto" : "1fr 1fr",
     gap: "8px",
+    order: isMobile ? 3 : undefined,
   };
 
   const summaryGridStyle: React.CSSProperties = {
     display: "grid",
-    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+    gridTemplateColumns: isMobile ? "repeat(2, minmax(0, 1fr))" : "repeat(4, minmax(0, 1fr))",
     gap: "8px",
     alignItems: "stretch",
-    height: "100%",
+    height: isMobile ? "auto" : "100%",
   };
 
   const sideBySideTableRowStyle: React.CSSProperties = {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr",
+    gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
     gap: "10px",
     alignItems: "start",
   };
 
   const fourColumnChartsStyle: React.CSSProperties = {
     display: "grid",
-    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+    gridTemplateColumns: isMobile ? "1fr" : "repeat(4, minmax(0, 1fr))",
     gap: "10px",
     alignItems: "start",
   };
+
+  const detailedChartsGridStyle: React.CSSProperties = isMobile
+    ? { display: "grid", gridTemplateColumns: "1fr", gap: "10px", alignItems: "start" }
+    : theme.layout.detailedChartsGrid;
 
   return (
     <div style={theme.styles.appShell}>
@@ -921,6 +934,21 @@ export default function App() {
 
         .windfall-compact-panel .windfall-stat-card {
           min-height: 44px !important;
+        }
+
+        /* ── Mobile upload toggle button ─────────────────────────── */
+        .wf-mobile-upload-toggle button {
+          width: 100%;
+          border: 1px solid rgba(91, 62, 46, 0.18);
+          background: rgba(255, 255, 255, 0.5);
+          color: #2c211d;
+          border-radius: 999px;
+          padding: 10px 16px;
+          cursor: pointer;
+          font-size: 13px;
+          font-weight: 600;
+          font-family: inherit;
+          letter-spacing: 0.02em;
         }
       `}</style>
 
@@ -1022,7 +1050,28 @@ export default function App() {
         </div>
 
         <div style={topWorkingRowStyle}>
-          <div style={utilityColumnStyle}>
+          {isMobile && rows.length > 0 && (
+            <div className="wf-mobile-upload-toggle" style={{ order: 2 }}>
+              <button
+                type="button"
+                onClick={() => setMobileUploadVisible((v) => !v)}
+              >
+                {mobileUploadVisible
+                  ? "▲ Hide upload panels"
+                  : "▼ Show upload panels"}
+              </button>
+            </div>
+          )}
+
+          <div
+            style={{
+              ...utilityColumnStyle,
+              display:
+                isMobile && rows.length > 0 && !mobileUploadVisible
+                  ? "none"
+                  : "grid",
+            }}
+          >
             <UploadPanel
               appendMode={appendMode}
               onAppendModeChange={setAppendMode}
@@ -1056,7 +1105,10 @@ export default function App() {
           </div>
 
           {rows.length > 0 && (
-            <div className="windfall-summary-compact" style={{ height: "100%" }}>
+            <div
+              className="windfall-summary-compact"
+              style={{ height: isMobile ? "auto" : "100%", order: isMobile ? 1 : undefined }}
+            >
               <div style={summaryGridStyle}>
                 <SummaryCard
                   title="Total Usage"
@@ -1311,7 +1363,7 @@ export default function App() {
               defaultOpen={false}
               theme={theme}
             >
-              <div style={theme.layout.detailedChartsGrid}>
+              <div style={detailedChartsGridStyle}>
                 <ChartCard title="Daily Usage" compact theme={theme}>
                   <ResponsiveContainer
                     width="100%"
