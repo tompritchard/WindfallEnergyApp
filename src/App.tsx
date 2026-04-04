@@ -246,6 +246,69 @@ export default function App() {
     document.body.style.background = "transparent";
   }, [theme]);
 
+  // Sync from server once after localStorage restore
+  useEffect(() => {
+    if (!hasRestoredState) return;
+
+    async function syncFromServer() {
+      try {
+        const [importNames, exportNames] = await Promise.all([
+          fetch("/api/import/list").then((r): Promise<string[]> => r.json()),
+          fetch("/api/export/list").then((r): Promise<string[]> => r.json()),
+        ]);
+
+        if (importNames.length === 0 && exportNames.length === 0) return;
+
+        const [importBatches, exportBatches] = await Promise.all([
+          Promise.all(
+            importNames.map(async (name) => {
+              const blob = await fetch(
+                `/api/import/file/${encodeURIComponent(name)}`
+              ).then((r) => r.blob());
+              return parseCsvFile(new File([blob], name, { type: "text/csv" }));
+            })
+          ),
+          Promise.all(
+            exportNames.map(async (name) => {
+              const blob = await fetch(
+                `/api/export/file/${encodeURIComponent(name)}`
+              ).then((r) => r.blob());
+              return parseExportCsvFile(
+                new File([blob], name, { type: "text/csv" })
+              );
+            })
+          ),
+        ]);
+
+        const importDedupMap = new Map<string, UsageRow>();
+        for (const row of importBatches.flat()) {
+          importDedupMap.set(row.timestamp.toISOString(), row);
+        }
+        const exportDedupMap = new Map<string, ExportRow>();
+        for (const row of exportBatches.flat()) {
+          exportDedupMap.set(row.date.toISOString(), row);
+        }
+
+        setRows(
+          Array.from(importDedupMap.values()).sort(
+            (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
+          )
+        );
+        setFileNames(importNames.sort());
+        setExportRows(
+          Array.from(exportDedupMap.values()).sort(
+            (a, b) => a.date.getTime() - b.date.getTime()
+          )
+        );
+        setExportFileNames(exportNames.sort());
+      } catch {
+        // Server unavailable — localStorage state remains
+      }
+    }
+
+    void syncFromServer();
+  }, [hasRestoredState]); // eslint-disable-line react-hooks/exhaustive-deps
+
   async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const selectedFiles = event.target.files;
     if (!selectedFiles || selectedFiles.length === 0) return;
@@ -298,6 +361,13 @@ export default function App() {
       ...(Array.isArray(previous) ? previous : []),
       ...newIssues,
     ]);
+
+    // Persist to server
+    const importForm = new FormData();
+    for (const file of files) importForm.append("files", file);
+    fetch("/api/import/upload", { method: "POST", body: importForm }).catch(
+      () => {}
+    );
 
     if (importInputRef.current) {
       importInputRef.current.value = "";
@@ -352,6 +422,13 @@ export default function App() {
     setExportRows(finalRows);
     setExportFileNames(merged);
 
+    // Persist to server
+    const exportForm = new FormData();
+    for (const file of files) exportForm.append("files", file);
+    fetch("/api/export/upload", { method: "POST", body: exportForm }).catch(
+      () => {}
+    );
+
     if (exportInputRef.current) {
       exportInputRef.current.value = "";
     }
@@ -386,6 +463,8 @@ export default function App() {
       console.error("Failed to clear saved import state", error);
     }
 
+    fetch("/api/import/clear", { method: "DELETE" }).catch(() => {});
+
     if (importInputRef.current) {
       importInputRef.current.value = "";
     }
@@ -416,6 +495,8 @@ export default function App() {
     } catch (error) {
       console.error("Failed to clear saved export state", error);
     }
+
+    fetch("/api/export/clear", { method: "DELETE" }).catch(() => {});
 
     if (exportInputRef.current) {
       exportInputRef.current.value = "";

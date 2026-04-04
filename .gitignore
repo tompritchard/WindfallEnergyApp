@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Uploaded CSV data (server-side persistent storage)
+data/import/*.csv
+data/export/*.csv
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
