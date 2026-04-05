@@ -4,7 +4,11 @@
       "Bash(npx tsc:*)",
       "Bash(npm run:*)",
       "Bash(npm i:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(find /c/WindfallEnergyApp -name \"package.json\" -not -path \"*/node_modules/*\" -exec cat {} \\\\;)",
+      "Bash(grep -n \"\\\\\\\\?\\\\\\\\?\" /c/WindfallEnergyApp/src/App.tsx)",
+      "Bash(grep -n \"default.*=\" /c/WindfallEnergyApp/src/components/*.tsx)",
+      "Bash(grep -n \"statCellStyle\\\\|statRowStyle\" /c/WindfallEnergyApp/src/components/*.tsx)"
     ]
   }
 }

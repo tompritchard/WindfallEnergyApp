@@ -25,7 +25,7 @@ app.use(express.json());
 function makeStorage(dir: string): multer.StorageEngine {
   return multer.diskStorage({
     destination: dir,
-    filename: (_req, file, cb) => cb(null, file.originalname),
+    filename: (_req, file, cb) => cb(null, path.basename(file.originalname)),
   });
 }
 
@@ -66,7 +66,11 @@ app.get("/api/import/file/:name", (req, res) => {
 
 app.delete("/api/import/clear", (_req, res) => {
   for (const f of fs.readdirSync(IMPORT_DIR)) {
-    fs.unlinkSync(path.join(IMPORT_DIR, f));
+    try {
+      fs.unlinkSync(path.join(IMPORT_DIR, f));
+    } catch {
+      // File already gone or locked — continue clearing the rest
+    }
   }
   res.json({ ok: true });
 });
@@ -93,7 +97,11 @@ app.get("/api/export/file/:name", (req, res) => {
 
 app.delete("/api/export/clear", (_req, res) => {
   for (const f of fs.readdirSync(EXPORT_DIR)) {
-    fs.unlinkSync(path.join(EXPORT_DIR, f));
+    try {
+      fs.unlinkSync(path.join(EXPORT_DIR, f));
+    } catch {
+      // File already gone or locked — continue clearing the rest
+    }
   }
   res.json({ ok: true });
 });
