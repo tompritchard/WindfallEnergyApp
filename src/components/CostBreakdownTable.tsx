@@ -55,6 +55,9 @@ function getMonthLabel(row: MonthlyRow): string {
   return row.displayMonth ?? row.month ?? "-";
 }
 
+const centeredOverlay: React.CSSProperties = { textAlign: "center", verticalAlign: "middle" };
+const boldOverlay: React.CSSProperties = { fontWeight: 700 };
+
 export default function CostBreakdownTable({
   monthlyData,
   theme,
@@ -62,27 +65,10 @@ export default function CostBreakdownTable({
   const ui = theme.components.dataTable;
   const safeMonthlyData = Array.isArray(monthlyData) ? monthlyData : [];
 
-  const headCellCentered: React.CSSProperties = {
-    ...ui.headCell,
-    textAlign: "center",
-    verticalAlign: "middle",
-  };
-
-  const bodyCellCentered: React.CSSProperties = {
-    ...ui.bodyCell,
-    textAlign: "center",
-    verticalAlign: "middle",
-  };
-
-  const monthCell: React.CSSProperties = {
-    ...ui.bodyCell,
-    fontWeight: 700,
-  };
-
-  const totalCostCell: React.CSSProperties = {
-    ...bodyCellCentered,
-    fontWeight: 700,
-  };
+  const headCellCentered: React.CSSProperties = { ...ui.headCell, ...centeredOverlay };
+  const bodyCellCentered: React.CSSProperties = { ...ui.bodyCell, ...centeredOverlay };
+  const monthCell: React.CSSProperties = { ...ui.bodyCell, ...boldOverlay };
+  const totalCostCell: React.CSSProperties = { ...bodyCellCentered, ...boldOverlay };
 
   return (
     <section style={ui.wrapper}>

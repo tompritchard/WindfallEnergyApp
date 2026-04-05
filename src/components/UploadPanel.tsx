@@ -3,6 +3,8 @@ import type { ParseIssue } from "../types";
 import type { DashboardTheme } from "../theme";
 
 type UploadPanelProps = {
+  title: string;
+  clearLabel: string;
   appendMode: boolean;
   onAppendModeChange: (value: boolean) => void;
   onClearData: () => void;
@@ -38,6 +40,8 @@ const statValueStyle: React.CSSProperties = {
 };
 
 export default function UploadPanel({
+  title,
+  clearLabel,
   appendMode,
   onAppendModeChange,
   onClearData,
@@ -56,11 +60,11 @@ export default function UploadPanel({
     <section style={ui.section} className="windfall-compact-panel">
       <div style={ui.topRow}>
         <div>
-          <h2 style={ui.title}>Import data</h2>
+          <h2 style={ui.title}>{title}</h2>
         </div>
 
         <button type="button" onClick={onClearData} style={ui.ghostButton}>
-          Clear import data
+          {clearLabel}
         </button>
       </div>
 
@@ -108,7 +112,7 @@ export default function UploadPanel({
 
       {issues.length > 0 && (
         <div style={ui.issueBox}>
-          <div style={ui.issueTitle}>Import issues</div>
+          <div style={ui.issueTitle}>Issues</div>
           <ul style={ui.issueList}>
             {issues.map((issue, index) => (
               <li key={`${issue.fileName}-${index}`}>

@@ -17,12 +17,18 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { ExportPreparedMonth, ParseIssue, StoredUsageRow, UsageRow } from "./types";
+import type { ExportPreparedMonth, MonthlyDataPoint, ParseIssue, StoredUsageRow, UsageRow } from "./types";
 import {
   formatCurrency,
   formatDisplayDate,
   formatDisplayDateFromDate,
   formatKwh,
+  monthKeyFromDate,
+  monthKeyFromDisplayMonth,
+  monthLabelFromDate,
+  parseUkDateToMonthKey,
+  safeFiniteNumber,
+  sortMonthKeysAscending,
 } from "./utils/formatters";
 import {
   fromStoredUsageRow,
@@ -36,6 +42,7 @@ import {
   type ExportRow,
 } from "./utils/exportParsing";
 import freeElectricityCredits from "./data/freeElectricityCredits";
+import { TARIFF_PERIODS } from "./utils/tariffs";
 import { useProcessedData } from "./hooks/useProcessedData";
 import SummaryCard from "./components/SummaryCard";
 import ChartCard from "./components/ChartCard";
@@ -43,7 +50,6 @@ import CustomTooltip from "./components/CustomTooltip";
 import UploadPanel from "./components/UploadPanel";
 import CostBreakdownTable from "./components/CostBreakdownTable";
 import ExportPrepTable from "./components/ExportPrepTable";
-import ExportUploadPanel from "./components/ExportUploadPanel";
 import CollapsibleSection from "./components/CollapsibleSection";
 import { defaultThemeId, getThemeById, themes } from "./theme";
 
@@ -62,65 +68,6 @@ type StoredDashboardState = {
   exportAppendMode?: boolean;
   selectedThemeId?: string;
 };
-
-type MonthlyImportRow = {
-  displayMonth?: string;
-  kwh?: number;
-  totalCost?: number;
-  offPeakCost?: number;
-  peakCost?: number;
-  standing?: number;
-  offPeakPercent?: number;
-  peakPercent?: number;
-  standingPercent?: number;
-};
-
-function monthKeyFromDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  return `${year}-${month}`;
-}
-
-function monthLabelFromDate(date: Date): string {
-  return date.toLocaleString("en-GB", {
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function monthKeyFromDisplayMonth(displayMonth: string): string {
-  const [monthLabel, yearLabel] = displayMonth.trim().split(/\s+/);
-  const monthMap: Record<string, string> = {
-    Jan: "01",
-    Feb: "02",
-    Mar: "03",
-    Apr: "04",
-    May: "05",
-    Jun: "06",
-    Jul: "07",
-    Aug: "08",
-    Sep: "09",
-    Oct: "10",
-    Nov: "11",
-    Dec: "12",
-  };
-
-  const month = monthMap[monthLabel] ?? "01";
-  const year = /^\d{4}$/.test(yearLabel ?? "") ? yearLabel : "1970";
-  return `${year}-${month}`;
-}
-
-function sortMonthKeysAscending(a: string, b: string): number {
-  return a.localeCompare(b);
-}
-
-function parseUkDateToMonthKey(value: string): string | null {
-  const match = value.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (!match) return null;
-
-  const [, , mm, yyyy] = match;
-  return `${yyyy}-${mm}`;
-}
 
 export default function App() {
   const [rows, setRows] = useState<UsageRow[]>([]);
@@ -244,7 +191,15 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
-    const handler = () => setWindowWidth(window.innerWidth);
+    const BREAKPOINT = 768;
+    const handler = () => {
+      const w = window.innerWidth;
+      setWindowWidth((prev) => {
+        const wasBelow = prev <= BREAKPOINT;
+        const isBelow = w <= BREAKPOINT;
+        return wasBelow !== isBelow ? w : prev;
+      });
+    };
     window.addEventListener("resize", handler);
     return () => window.removeEventListener("resize", handler);
   }, []);
@@ -441,70 +396,18 @@ export default function App() {
     setRows([]);
     setFileNames([]);
     setIssues([]);
-
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      const parsed = raw ? (JSON.parse(raw) as StoredDashboardState) : {};
-      window.localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          rows: [],
-          exportRows: Array.isArray(parsed.exportRows) ? parsed.exportRows : [],
-          fileNames: [],
-          exportFileNames: Array.isArray(parsed.exportFileNames)
-            ? parsed.exportFileNames
-            : [],
-          appendMode:
-            typeof parsed.appendMode === "boolean" ? parsed.appendMode : true,
-          selectedThemeId:
-            typeof parsed.selectedThemeId === "string"
-              ? parsed.selectedThemeId
-              : defaultThemeId,
-        })
-      );
-    } catch (error) {
-      console.error("Failed to clear saved import state", error);
-    }
-
+    // The save useEffect re-runs automatically and writes the cleared state to localStorage
     fetch("/api/import/clear", { method: "DELETE" }).catch(() => {});
-
-    if (importInputRef.current) {
-      importInputRef.current.value = "";
-    }
+    if (importInputRef.current) importInputRef.current.value = "";
   }
 
   function clearExportData() {
     setExportRows([]);
     setExportFileNames([]);
     setExportIssues([]);
-
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      const parsed = raw ? (JSON.parse(raw) as StoredDashboardState) : {};
-      window.localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          rows: Array.isArray(parsed.rows) ? parsed.rows : [],
-          exportRows: [],
-          fileNames: Array.isArray(parsed.fileNames) ? parsed.fileNames : [],
-          exportFileNames: [],
-          appendMode:
-            typeof parsed.appendMode === "boolean" ? parsed.appendMode : true,
-          selectedThemeId:
-            typeof parsed.selectedThemeId === "string"
-              ? parsed.selectedThemeId
-              : defaultThemeId,
-        })
-      );
-    } catch (error) {
-      console.error("Failed to clear saved export state", error);
-    }
-
+    // The save useEffect re-runs automatically and writes the cleared state to localStorage
     fetch("/api/export/clear", { method: "DELETE" }).catch(() => {});
-
-    if (exportInputRef.current) {
-      exportInputRef.current.value = "";
-    }
+    if (exportInputRef.current) exportInputRef.current.value = "";
   }
 
   const freeCreditByMonth = useMemo(() => {
@@ -521,30 +424,13 @@ export default function App() {
   }, []);
 
   const adjustedMonthlyData = useMemo(() => {
-    const safeMonthlyData = Array.isArray(monthlyData)
-      ? (monthlyData as MonthlyImportRow[])
-      : [];
-
-    return safeMonthlyData.map((row) => {
-      const displayMonth = row.displayMonth ?? "-";
-      const key = monthKeyFromDisplayMonth(displayMonth);
-
+    return monthlyData.map((row: MonthlyDataPoint) => {
+      const key = monthKeyFromDisplayMonth(row.displayMonth);
       const freeCredit = freeCreditByMonth.get(key) ?? 0;
 
-      const originalPeakCost =
-        typeof row.peakCost === "number" && Number.isFinite(row.peakCost)
-          ? row.peakCost
-          : 0;
-
-      const originalOffPeakCost =
-        typeof row.offPeakCost === "number" && Number.isFinite(row.offPeakCost)
-          ? row.offPeakCost
-          : 0;
-
-      const originalStanding =
-        typeof row.standing === "number" && Number.isFinite(row.standing)
-          ? row.standing
-          : 0;
+      const originalPeakCost = safeFiniteNumber(row.peakCost);
+      const originalOffPeakCost = safeFiniteNumber(row.offPeakCost);
+      const originalStanding = safeFiniteNumber(row.standing);
 
       const adjustedPeakCost = Math.max(0, originalPeakCost - freeCredit);
       const adjustedTotalCost =
@@ -578,19 +464,11 @@ export default function App() {
       { displayMonth: string; importCost: number }
     >();
 
-    const safeMonthlyData = Array.isArray(adjustedMonthlyData)
-      ? (adjustedMonthlyData as MonthlyImportRow[])
-      : [];
-
-    for (const row of safeMonthlyData) {
-      const displayMonth = row.displayMonth ?? "-";
-      const key = monthKeyFromDisplayMonth(displayMonth);
+    for (const row of adjustedMonthlyData) {
+      const key = monthKeyFromDisplayMonth(row.displayMonth);
       importMonthMap.set(key, {
-        displayMonth,
-        importCost:
-          typeof row.totalCost === "number" && Number.isFinite(row.totalCost)
-            ? row.totalCost
-            : 0,
+        displayMonth: row.displayMonth,
+        importCost: safeFiniteNumber(row.totalCost),
       });
     }
 
@@ -682,22 +560,12 @@ export default function App() {
       }
     >();
 
-    const safeAdjustedMonthlyData = Array.isArray(adjustedMonthlyData)
-      ? (adjustedMonthlyData as MonthlyImportRow[])
-      : [];
-
-    for (const row of safeAdjustedMonthlyData) {
-      const displayMonth = row.displayMonth ?? "-";
-      const key = monthKeyFromDisplayMonth(displayMonth);
-
+    for (const row of adjustedMonthlyData) {
+      const key = monthKeyFromDisplayMonth(row.displayMonth);
       importMap.set(key, {
-        displayMonth,
-        importCost:
-          typeof row.totalCost === "number" && Number.isFinite(row.totalCost)
-            ? row.totalCost
-            : 0,
-        importKwh:
-          typeof row.kwh === "number" && Number.isFinite(row.kwh) ? row.kwh : 0,
+        displayMonth: row.displayMonth,
+        importCost: safeFiniteNumber(row.totalCost),
+        importKwh: safeFiniteNumber(row.kwh),
       });
     }
 
@@ -715,15 +583,8 @@ export default function App() {
 
       exportMap.set(key, {
         displayMonth: row.displayMonth,
-        exportRevenue:
-          typeof row.exportRevenue === "number" &&
-          Number.isFinite(row.exportRevenue)
-            ? row.exportRevenue
-            : 0,
-        exportKwh:
-          typeof row.exportKwh === "number" && Number.isFinite(row.exportKwh)
-            ? row.exportKwh
-            : 0,
+        exportRevenue: safeFiniteNumber(row.exportRevenue),
+        exportKwh: safeFiniteNumber(row.exportKwh),
       });
     }
 
@@ -751,16 +612,24 @@ export default function App() {
     });
   }, [adjustedMonthlyData, exportPreparedMonths]);
 
-  if (!theme) return null;
-
   const isMobile = windowWidth <= 768;
 
-  const safeFileNames = Array.isArray(fileNames) ? fileNames : [];
-  const safeExportFileNames = Array.isArray(exportFileNames)
-    ? exportFileNames
-    : [];
-  const safeIssues = Array.isArray(issues) ? issues : [];
-  const safeThemes = Array.isArray(themes) ? themes : [];
+  const safeFileNames = useMemo(
+    () => (Array.isArray(fileNames) ? fileNames : []),
+    [fileNames]
+  );
+  const safeExportFileNames = useMemo(
+    () => (Array.isArray(exportFileNames) ? exportFileNames : []),
+    [exportFileNames]
+  );
+  const safeIssues = useMemo(
+    () => (Array.isArray(issues) ? issues : []),
+    [issues]
+  );
+
+  if (!theme) return null;
+
+  const safeThemes = themes; // themes is always a stable array from the module
 
   const compactHeroCardStyle: React.CSSProperties = {
     ...theme.styles.heroCard,
@@ -996,47 +865,39 @@ export default function App() {
               </div>
 
               <div style={tariffGridStyle}>
-                <div style={tariffBlockStyle}>
-                  <div
-                    style={{
-                      fontSize: "0.68rem",
-                      letterSpacing: "0.1em",
-                      textTransform: "uppercase",
-                      opacity: 0.7,
-                      marginBottom: "3px",
-                    }}
-                  >
-                    Nov 2025 to Mar 2026
-                  </div>
-                  <div style={{ fontWeight: 700 }}>
-                    Off-peak 00:00–05:00 | 8.56p
-                  </div>
-                  <div style={{ marginTop: "3px" }}>
-                    Peak other times | 22.80p
-                  </div>
-                  <div style={{ marginTop: "3px" }}>Standing 59.53p/day</div>
-                </div>
-
-                <div style={tariffBlockStyle}>
-                  <div
-                    style={{
-                      fontSize: "0.68rem",
-                      letterSpacing: "0.1em",
-                      textTransform: "uppercase",
-                      opacity: 0.7,
-                      marginBottom: "3px",
-                    }}
-                  >
-                    Apr 2026 onwards
-                  </div>
-                  <div style={{ fontWeight: 700 }}>
-                    Off-peak 23:00–06:00 | 5.48p
-                  </div>
-                  <div style={{ marginTop: "3px" }}>
-                    Peak other times | 20.43p
-                  </div>
-                  <div style={{ marginTop: "3px" }}>Standing 62.51p/day</div>
-                </div>
+                {TARIFF_PERIODS.map((period) => {
+                  const fmt = (h: number) =>
+                    `${String(h).padStart(2, "0")}:00`;
+                  const offPeakRange = `${fmt(period.offPeakStartHour)}–${fmt(period.offPeakEndHour)}`;
+                  const endLabel = period.end ?? "onwards";
+                  return (
+                    <div key={period.name} style={tariffBlockStyle}>
+                      <div
+                        style={{
+                          fontSize: "0.68rem",
+                          letterSpacing: "0.1em",
+                          textTransform: "uppercase",
+                          opacity: 0.7,
+                          marginBottom: "3px",
+                        }}
+                      >
+                        {period.name}
+                      </div>
+                      <div style={{ fontWeight: 700 }}>
+                        Off-peak {offPeakRange} | {(period.offPeak * 100).toFixed(2)}p
+                      </div>
+                      <div style={{ marginTop: "3px" }}>
+                        Peak other times | {(period.peak * 100).toFixed(2)}p
+                      </div>
+                      <div style={{ marginTop: "3px" }}>
+                        Standing {(period.standing * 100).toFixed(2)}p/day
+                      </div>
+                      <div style={{ marginTop: "3px", fontSize: "0.72rem", opacity: 0.6 }}>
+                        Until {endLabel}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -1066,6 +927,8 @@ export default function App() {
             }}
           >
             <UploadPanel
+              title="Import data"
+              clearLabel="Clear import data"
               appendMode={appendMode}
               onAppendModeChange={setAppendMode}
               onClearData={clearImportData}
@@ -1083,7 +946,9 @@ export default function App() {
               theme={theme}
             />
 
-            <ExportUploadPanel
+            <UploadPanel
+              title="Export data"
+              clearLabel="Clear export data"
               inputRef={exportInputRef}
               onFileChange={handleExportFileUpload}
               onClearData={clearExportData}
@@ -1354,6 +1219,7 @@ export default function App() {
 
             <CollapsibleSection
               title="Detailed Daily Charts"
+              storageKey="windfall-detailed-charts-open"
               defaultOpen={false}
               theme={theme}
             >

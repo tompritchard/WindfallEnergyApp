@@ -21,6 +21,9 @@ function safeKwh(value: number | null | undefined): string {
     : "Pending";
 }
 
+const centeredOverlay: React.CSSProperties = { textAlign: "center", verticalAlign: "middle" };
+const boldOverlay: React.CSSProperties = { fontWeight: 700 };
+
 export default function ExportPrepTable({
   exportPreparedMonths,
   exportFileNames,
@@ -29,27 +32,10 @@ export default function ExportPrepTable({
   const ui = theme.components.dataTable;
   const safeRows = Array.isArray(exportPreparedMonths) ? exportPreparedMonths : [];
 
-  const headCellCentered: React.CSSProperties = {
-    ...ui.headCell,
-    textAlign: "center",
-    verticalAlign: "middle",
-  };
-
-  const bodyCellCentered: React.CSSProperties = {
-    ...ui.bodyCell,
-    textAlign: "center",
-    verticalAlign: "middle",
-  };
-
-  const monthCell: React.CSSProperties = {
-    ...ui.bodyCell,
-    fontWeight: 700,
-  };
-
-  const importCostCell: React.CSSProperties = {
-    ...bodyCellCentered,
-    fontWeight: 700,
-  };
+  const headCellCentered: React.CSSProperties = { ...ui.headCell, ...centeredOverlay };
+  const bodyCellCentered: React.CSSProperties = { ...ui.bodyCell, ...centeredOverlay };
+  const monthCell: React.CSSProperties = { ...ui.bodyCell, ...boldOverlay };
+  const importCostCell: React.CSSProperties = { ...bodyCellCentered, ...boldOverlay };
 
   return (
     <section style={ui.wrapper}>
