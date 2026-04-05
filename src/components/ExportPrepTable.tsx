@@ -1,15 +1,7 @@
 import React from "react";
 import type { DashboardTheme } from "../theme";
+import type { ExportPreparedMonth } from "../types";
 import { formatCurrency, formatKwh } from "../utils/formatters";
-
-type ExportPreparedMonth = {
-  displayMonth: string;
-  importCost: number;
-  exportRevenue: number | null;
-  exportKwh: number | null;
-  netPosition: number | null;
-  runningTotal: number | null;
-};
 
 type ExportPrepTableProps = {
   exportPreparedMonths: ExportPreparedMonth[];

@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import type {
   DailyDataPoint,
   DashboardSummary,
-  ExportPreparedMonth,
   MonthlyDataPoint,
   SupplierComparison,
   UsageRow,
@@ -179,17 +178,6 @@ export function useProcessedData(rows: UsageRow[]) {
     };
   }, [rows, summary.usageCost]);
 
-  const exportPreparedMonths = useMemo<ExportPreparedMonth[]>(
-    () =>
-      monthlyData.map((item) => ({
-        month: item.displayMonth,
-        importCost: item.totalCost,
-        exportRevenue: null,
-        netPosition: null,
-      })),
-    [monthlyData]
-  );
-
   return {
     summary,
     dailyData,
@@ -197,6 +185,5 @@ export function useProcessedData(rows: UsageRow[]) {
     hourlyData,
     peakSplitData,
     supplierComparison,
-    exportPreparedMonths,
   };
 }

@@ -17,11 +17,11 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { ParseIssue, StoredUsageRow, UsageRow } from "./types";
+import type { ExportPreparedMonth, ParseIssue, StoredUsageRow, UsageRow } from "./types";
 import {
   formatCurrency,
-  formatDateKey,
   formatDisplayDate,
+  formatDisplayDateFromDate,
   formatKwh,
 } from "./utils/formatters";
 import {
@@ -73,15 +73,6 @@ type MonthlyImportRow = {
   offPeakPercent?: number;
   peakPercent?: number;
   standingPercent?: number;
-};
-
-type ExportPreparedMonth = {
-  displayMonth: string;
-  importCost: number;
-  exportRevenue: number | null;
-  exportKwh: number | null;
-  netPosition: number | null;
-  runningTotal: number | null;
 };
 
 function monthKeyFromDate(date: Date): string {
@@ -137,6 +128,7 @@ export default function App() {
   const [fileNames, setFileNames] = useState<string[]>([]);
   const [exportFileNames, setExportFileNames] = useState<string[]>([]);
   const [issues, setIssues] = useState<ParseIssue[]>([]);
+  const [exportIssues, setExportIssues] = useState<ParseIssue[]>([]);
   const [appendMode, setAppendMode] = useState<boolean>(true);
   const [exportAppendMode, setExportAppendMode] = useState<boolean>(true);
   const [mobileUploadVisible, setMobileUploadVisible] =
@@ -399,7 +391,7 @@ export default function App() {
         const processed = await parseExportCsvFile(file);
         parsedBatches.push(processed);
       } catch (error) {
-        setIssues((previous) => [
+        setExportIssues((previous) => [
           ...(Array.isArray(previous) ? previous : []),
           {
             fileName: file.name,
@@ -484,6 +476,7 @@ export default function App() {
   function clearExportData() {
     setExportRows([]);
     setExportFileNames([]);
+    setExportIssues([]);
 
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -1096,10 +1089,11 @@ export default function App() {
               onClearData={clearExportData}
               fileNames={safeExportFileNames}
               intervalCount={exportRows.length}
-              firstDate={exportRows.length > 0 ? formatDisplayDate(formatDateKey(exportRows[0].date)) : null}
-              lastDate={exportRows.length > 0 ? formatDisplayDate(formatDateKey(exportRows[exportRows.length - 1].date)) : null}
+              firstDate={exportRows.length > 0 ? formatDisplayDateFromDate(exportRows[0].date) : null}
+              lastDate={exportRows.length > 0 ? formatDisplayDateFromDate(exportRows[exportRows.length - 1].date) : null}
               appendMode={exportAppendMode}
               onAppendModeChange={setExportAppendMode}
+              issues={exportIssues}
               theme={theme}
             />
           </div>

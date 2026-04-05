@@ -19,6 +19,10 @@ export function formatDisplayDate(dateKey: string): string {
   return `${day}/${month}/${year}`;
 }
 
+export function formatDisplayDateFromDate(date: Date): string {
+  return formatDisplayDate(formatDateKey(date));
+}
+
 export function formatDisplayMonth(monthKey: string): string {
   const [year, month] = monthKey.split("-");
   const monthIndex = Number(month) - 1;

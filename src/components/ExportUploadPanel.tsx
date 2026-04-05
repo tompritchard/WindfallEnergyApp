@@ -1,4 +1,5 @@
 import React from "react";
+import type { ParseIssue } from "../types";
 import type { DashboardTheme } from "../theme";
 
 type ExportUploadPanelProps = {
@@ -11,6 +12,7 @@ type ExportUploadPanelProps = {
   lastDate: string | null;
   appendMode: boolean;
   onAppendModeChange: (value: boolean) => void;
+  issues: ParseIssue[];
   theme: DashboardTheme;
 };
 
@@ -45,6 +47,7 @@ export default function ExportUploadPanel({
   lastDate,
   appendMode,
   onAppendModeChange,
+  issues,
   theme,
 }: ExportUploadPanelProps) {
   const ui = theme.components.uploadPanel;
@@ -102,6 +105,19 @@ export default function ExportUploadPanel({
         <span style={statCellStyle}>From <strong style={statValueStyle}>{firstDate ?? "–"}</strong></span>
         <span style={statCellStyle}>To <strong style={statValueStyle}>{lastDate ?? "–"}</strong></span>
       </div>
+
+      {issues.length > 0 && (
+        <div style={ui.issueBox}>
+          <div style={ui.issueTitle}>Export issues</div>
+          <ul style={ui.issueList}>
+            {issues.map((issue, index) => (
+              <li key={`${issue.fileName}-${index}`}>
+                <strong>{issue.fileName}:</strong> {issue.message}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </section>
   );
 }

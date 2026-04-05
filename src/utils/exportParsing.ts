@@ -19,15 +19,7 @@ function parseUkDate(value: string): Date | null {
   if (!match) return null;
 
   const [, dd, mm, yyyy] = match;
-  const date = new Date(
-    Number(yyyy),
-    Number(mm) - 1,
-    Number(dd),
-    0,
-    0,
-    0,
-    0
-  );
+  const date = new Date(`${yyyy}-${mm}-${dd}T00:00:00Z`);
 
   return Number.isNaN(date.getTime()) ? null : date;
 }
