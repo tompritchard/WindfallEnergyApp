@@ -40,6 +40,7 @@ import {
   parseExportCsvFile,
   toStoredExportRow,
   type ExportRow,
+  type StoredExportRow,
 } from "./utils/exportParsing";
 import freeElectricityCredits from "./data/freeElectricityCredits";
 import { SEED_EXPORT_MONTHS } from "./data/seedExportData";
@@ -59,11 +60,7 @@ const STORAGE_KEY = "windfall-energy-dashboard-state-v3";
 
 type StoredDashboardState = {
   rows?: StoredUsageRow[];
-  exportRows?: Array<{
-    date: string;
-    revenue: number;
-    inferredKwh: number | null;
-  }>;
+  exportRows?: StoredExportRow[];
   fileNames?: string[];
   exportFileNames?: string[];
   appendMode?: boolean;
@@ -190,7 +187,7 @@ export default function App() {
 
   useEffect(() => {
     document.body.style.background = "transparent";
-  }, [theme]);
+  }, []);
 
   useEffect(() => {
     const BREAKPOINT = 768;
@@ -429,6 +426,8 @@ export default function App() {
       const originalOffPeakCost = safeFiniteNumber(row.offPeakCost);
       const originalStanding = safeFiniteNumber(row.standing);
 
+      // Free credits are applied only against peak cost. Any credit that exceeds
+      // the month's peak cost is discarded (not carried to off-peak or the next month).
       const adjustedPeakCost = Math.max(0, originalPeakCost - freeCredit);
       const adjustedTotalCost =
         originalOffPeakCost + adjustedPeakCost + originalStanding;
@@ -458,7 +457,7 @@ export default function App() {
   const exportPreparedMonths: ExportPreparedMonth[] = useMemo(() => {
     const importMonthMap = new Map<
       string,
-      { displayMonth: string; importCost: number }
+      { displayMonth: string; importCost: number; importKwh: number }
     >();
 
     for (const row of adjustedMonthlyData) {
@@ -466,6 +465,7 @@ export default function App() {
       importMonthMap.set(key, {
         displayMonth: row.displayMonth,
         importCost: safeFiniteNumber(row.totalCost),
+        importKwh: safeFiniteNumber(row.kwh),
       });
     }
 
@@ -511,6 +511,7 @@ export default function App() {
       const exportMonth = exportMonthMap.get(key);
 
       const importCost = importMonth?.importCost ?? 0;
+      const importKwh = importMonth?.importKwh ?? 0;
       const exportRevenue = exportMonth ? exportMonth.exportRevenue : null;
       const exportKwh = exportMonth ? exportMonth.exportKwh : null;
       const netPosition =
@@ -524,6 +525,7 @@ export default function App() {
         displayMonth:
           importMonth?.displayMonth ?? exportMonth?.displayMonth ?? key,
         importCost,
+        importKwh,
         exportRevenue,
         exportKwh,
         netPosition,
@@ -532,178 +534,110 @@ export default function App() {
     });
   }, [adjustedMonthlyData, exportRows]);
 
-  const monthlyNetChartData = useMemo(() => {
-    const importMap = new Map<
-      string,
-      {
-        displayMonth: string;
-        importCost: number;
-        importKwh: number;
-      }
-    >();
-
-    for (const row of adjustedMonthlyData) {
-      const key = monthKeyFromDisplayMonth(row.displayMonth);
-      importMap.set(key, {
-        displayMonth: row.displayMonth,
-        importCost: safeFiniteNumber(row.totalCost),
-        importKwh: safeFiniteNumber(row.kwh),
-      });
-    }
-
-    const exportMap = new Map<
-      string,
-      {
-        displayMonth: string;
-        exportRevenue: number;
-        exportKwh: number;
-      }
-    >();
-
-    for (const row of exportPreparedMonths) {
-      const key = monthKeyFromDisplayMonth(row.displayMonth);
-
-      exportMap.set(key, {
-        displayMonth: row.displayMonth,
-        exportRevenue: safeFiniteNumber(row.exportRevenue),
-        exportKwh: safeFiniteNumber(row.exportKwh),
-      });
-    }
-
-    const allKeys = Array.from(
-      new Set([...importMap.keys(), ...exportMap.keys()])
-    ).sort(sortMonthKeysAscending);
-
-    return allKeys.map((key) => {
-      const importMonth = importMap.get(key);
-      const exportMonth = exportMap.get(key);
-
-      const displayMonth =
-        importMonth?.displayMonth ?? exportMonth?.displayMonth ?? key;
-
-      const importCost = importMonth?.importCost ?? 0;
-      const importKwh = importMonth?.importKwh ?? 0;
-      const exportRevenue = exportMonth?.exportRevenue ?? 0;
-      const exportKwh = exportMonth?.exportKwh ?? 0;
-
-      return {
-        displayMonth,
-        netCost: importCost - exportRevenue,
-        netKwh: importKwh - exportKwh,
-      };
-    });
-  }, [adjustedMonthlyData, exportPreparedMonths]);
+  const monthlyNetChartData = useMemo(() =>
+    exportPreparedMonths.map((m) => ({
+      displayMonth: m.displayMonth,
+      netCost: m.importCost - (m.exportRevenue ?? 0),
+      netKwh: m.importKwh - (m.exportKwh ?? 0),
+    }))
+  , [exportPreparedMonths]);
 
   const isMobile = windowWidth <= 768;
 
-  const safeFileNames = useMemo(
-    () => (Array.isArray(fileNames) ? fileNames : []),
-    [fileNames]
-  );
-  const safeExportFileNames = useMemo(
-    () => (Array.isArray(exportFileNames) ? exportFileNames : []),
-    [exportFileNames]
-  );
-  const safeIssues = useMemo(
-    () => (Array.isArray(issues) ? issues : []),
-    [issues]
-  );
-
   if (!theme) return null;
 
-  const safeThemes = themes; // themes is always a stable array from the module
-
-  const compactHeroCardStyle: React.CSSProperties = {
-    ...theme.styles.heroCard,
-    padding: "10px 16px",
-  };
-
-  const compactHeroInnerGridStyle: React.CSSProperties = {
-    ...theme.styles.heroInnerGrid,
-    display: "grid",
-    gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1.7fr) minmax(340px, 1fr)",
-    gap: "10px",
-    alignItems: isMobile ? "start" : "center",
-  };
-
-  const compactHeroTitleStyle: React.CSSProperties = {
-    ...theme.styles.heroTitle,
-    fontSize: isMobile ? "1.3rem" : "1.75rem",
-    lineHeight: 1.1,
-    marginBottom: "4px",
-  };
-
-  const compactHeroBodyStyle: React.CSSProperties = {
-    ...theme.styles.heroBody,
-    marginBottom: "6px",
-    fontSize: "0.8rem",
-    lineHeight: 1.2,
-    display: isMobile ? "none" : undefined,
-  };
-
-  const compactHeroMetaCardStyle: React.CSSProperties = {
-    ...theme.styles.heroMetaCard,
-    padding: "8px 12px",
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "center",
-    minHeight: isMobile ? "auto" : "100%",
-  };
-
-  const tariffGridStyle: React.CSSProperties = {
-    display: "grid",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    gap: "6px",
-    marginTop: "6px",
-  };
-
-  const tariffBlockStyle: React.CSSProperties = {
-    borderRadius: "10px",
-    padding: "7px 10px",
-    background: "rgba(255,255,255,0.35)",
-    border: "1px solid rgba(0,0,0,0.06)",
-    fontSize: "0.78rem",
-    lineHeight: 1.3,
-  };
-
-  const topWorkingRowStyle: React.CSSProperties = isMobile
-    ? { display: "grid", gridTemplateColumns: "1fr", gap: "8px" }
-    : rows.length > 0
-    ? { display: "grid", gridTemplateColumns: "28fr 72fr", gap: "8px", alignItems: "stretch" }
-    : { ...theme.layout.uploadRow };
-
-  const utilityColumnStyle: React.CSSProperties = {
-    display: "grid",
-    gridTemplateRows: isMobile ? "auto auto" : "1fr 1fr",
-    gap: "8px",
-    order: isMobile ? 3 : undefined,
-  };
-
-  const summaryGridStyle: React.CSSProperties = {
-    display: "grid",
-    gridTemplateColumns: isMobile ? "repeat(2, minmax(0, 1fr))" : "repeat(4, minmax(0, 1fr))",
-    gap: "8px",
-    alignItems: "stretch",
-    height: isMobile ? "auto" : "100%",
-  };
-
-  const sideBySideTableRowStyle: React.CSSProperties = {
-    display: "grid",
-    gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-    gap: "10px",
-    alignItems: "start",
-  };
-
-  const fourColumnChartsStyle: React.CSSProperties = {
-    display: "grid",
-    gridTemplateColumns: isMobile ? "1fr" : "repeat(4, minmax(0, 1fr))",
-    gap: "10px",
-    alignItems: "start",
-  };
-
-  const detailedChartsGridStyle: React.CSSProperties = isMobile
-    ? { display: "grid", gridTemplateColumns: "1fr", gap: "10px", alignItems: "start" }
-    : theme.layout.detailedChartsGrid;
+  const {
+    compactHeroCardStyle,
+    compactHeroInnerGridStyle,
+    compactHeroTitleStyle,
+    compactHeroBodyStyle,
+    compactHeroMetaCardStyle,
+    tariffGridStyle,
+    tariffBlockStyle,
+    topWorkingRowStyle,
+    utilityColumnStyle,
+    summaryGridStyle,
+    sideBySideTableRowStyle,
+    fourColumnChartsStyle,
+    detailedChartsGridStyle,
+  } = useMemo(() => ({
+    compactHeroCardStyle: { ...theme.styles.heroCard, padding: "10px 16px" } as React.CSSProperties,
+    compactHeroInnerGridStyle: {
+      ...theme.styles.heroInnerGrid,
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1.7fr) minmax(340px, 1fr)",
+      gap: "10px",
+      alignItems: isMobile ? "start" : "center",
+    } as React.CSSProperties,
+    compactHeroTitleStyle: {
+      ...theme.styles.heroTitle,
+      fontSize: isMobile ? "1.3rem" : "1.75rem",
+      lineHeight: 1.1,
+      marginBottom: "4px",
+    } as React.CSSProperties,
+    compactHeroBodyStyle: {
+      ...theme.styles.heroBody,
+      marginBottom: "6px",
+      fontSize: "0.8rem",
+      lineHeight: 1.2,
+      display: isMobile ? "none" : undefined,
+    } as React.CSSProperties,
+    compactHeroMetaCardStyle: {
+      ...theme.styles.heroMetaCard,
+      padding: "8px 12px",
+      display: "flex",
+      flexDirection: "column" as const,
+      justifyContent: "center",
+      minHeight: isMobile ? "auto" : "100%",
+    } as React.CSSProperties,
+    tariffGridStyle: {
+      display: "grid",
+      gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+      gap: "6px",
+      marginTop: "6px",
+    } as React.CSSProperties,
+    tariffBlockStyle: {
+      borderRadius: "10px",
+      padding: "7px 10px",
+      background: "rgba(255,255,255,0.35)",
+      border: "1px solid rgba(0,0,0,0.06)",
+      fontSize: "0.78rem",
+      lineHeight: 1.3,
+    } as React.CSSProperties,
+    topWorkingRowStyle: (isMobile
+      ? { display: "grid", gridTemplateColumns: "1fr", gap: "8px" }
+      : rows.length > 0
+      ? { display: "grid", gridTemplateColumns: "28fr 72fr", gap: "8px", alignItems: "stretch" }
+      : { ...theme.layout.uploadRow }) as React.CSSProperties,
+    utilityColumnStyle: {
+      display: "grid",
+      gridTemplateRows: isMobile ? "auto auto" : "1fr 1fr",
+      gap: "8px",
+      order: isMobile ? 3 : undefined,
+    } as React.CSSProperties,
+    summaryGridStyle: {
+      display: "grid",
+      gridTemplateColumns: isMobile ? "repeat(2, minmax(0, 1fr))" : "repeat(4, minmax(0, 1fr))",
+      gap: "8px",
+      alignItems: "stretch",
+      height: isMobile ? "auto" : "100%",
+    } as React.CSSProperties,
+    sideBySideTableRowStyle: {
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+      gap: "10px",
+      alignItems: "start",
+    } as React.CSSProperties,
+    fourColumnChartsStyle: {
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr" : "repeat(4, minmax(0, 1fr))",
+      gap: "10px",
+      alignItems: "start",
+    } as React.CSSProperties,
+    detailedChartsGridStyle: (isMobile
+      ? { display: "grid", gridTemplateColumns: "1fr", gap: "10px", alignItems: "start" }
+      : theme.layout.detailedChartsGrid) as React.CSSProperties,
+  }), [theme, isMobile, rows.length]);
 
   return (
     <div style={theme.styles.appShell}>
@@ -823,12 +757,12 @@ export default function App() {
                     value={selectedThemeId}
                     onChange={(e) => setSelectedThemeId(e.target.value)}
                     style={theme.components.themeSelector.select}
-                    disabled={safeThemes.length === 0}
+                    disabled={themes.length === 0}
                   >
-                    {safeThemes.length === 0 ? (
+                    {themes.length === 0 ? (
                       <option value="">No themes available</option>
                     ) : (
-                      safeThemes.map((item) => (
+                      themes.map((item) => (
                         <option key={item.id} value={item.id}>
                           {item.label}
                         </option>
@@ -916,7 +850,7 @@ export default function App() {
               onClearData={clearImportData}
               onFileChange={handleFileUpload}
               inputRef={importInputRef}
-              fileNames={safeFileNames}
+              fileNames={fileNames}
               intervalCount={rows.length}
               firstDate={
                 summary.firstDate ? formatDisplayDate(summary.firstDate) : null
@@ -924,7 +858,7 @@ export default function App() {
               lastDate={
                 summary.lastDate ? formatDisplayDate(summary.lastDate) : null
               }
-              issues={safeIssues}
+              issues={issues}
               theme={theme}
             />
 
@@ -934,7 +868,7 @@ export default function App() {
               inputRef={exportInputRef}
               onFileChange={handleExportFileUpload}
               onClearData={clearExportData}
-              fileNames={safeExportFileNames}
+              fileNames={exportFileNames}
               intervalCount={exportRows.length}
               firstDate={exportRows.length > 0 ? formatDisplayDateFromDate(exportRows[0].date) : null}
               lastDate={exportRows.length > 0 ? formatDisplayDateFromDate(exportRows[exportRows.length - 1].date) : null}
@@ -1053,7 +987,7 @@ export default function App() {
               <div className="windfall-table-compact windfall-export-table">
                 <ExportPrepTable
                   exportPreparedMonths={exportPreparedMonths}
-                  exportFileNames={safeExportFileNames}
+                  exportFileNames={exportFileNames}
                   theme={theme}
                 />
               </div>

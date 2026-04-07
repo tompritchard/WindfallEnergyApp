@@ -23,25 +23,30 @@ export function useProcessedData(rows: UsageRow[]) {
   }, [rows]);
 
   const summary = useMemo<DashboardSummary>(() => {
-    const totalKwh = rows.reduce((sum, row) => sum + row.kwh, 0);
-    const usageCost = rows.reduce((sum, row) => sum + row.calculatedCost, 0);
+    let totalKwh = 0;
+    let usageCost = 0;
+    let offPeakKwh = 0;
+    let peakKwh = 0;
+    let offPeakCost = 0;
+    let peakCost = 0;
+
+    for (const row of rows) {
+      totalKwh += row.kwh;
+      usageCost += row.calculatedCost;
+      if (row.isOffPeak) {
+        offPeakKwh += row.kwh;
+        offPeakCost += row.calculatedCost;
+      } else {
+        peakKwh += row.kwh;
+        peakCost += row.calculatedCost;
+      }
+    }
+
     const standingChargeTotal = Array.from(dayStandingCharges.values()).reduce(
       (sum, value) => sum + value,
       0
     );
     const totalCost = usageCost + standingChargeTotal;
-    const offPeakKwh = rows
-      .filter((row) => row.isOffPeak)
-      .reduce((sum, row) => sum + row.kwh, 0);
-    const peakKwh = rows
-      .filter((row) => !row.isOffPeak)
-      .reduce((sum, row) => sum + row.kwh, 0);
-    const offPeakCost = rows
-      .filter((row) => row.isOffPeak)
-      .reduce((sum, row) => sum + row.calculatedCost, 0);
-    const peakCost = rows
-      .filter((row) => !row.isOffPeak)
-      .reduce((sum, row) => sum + row.calculatedCost, 0);
     const firstDate = rows.length > 0 ? rows[0].dateKey : null;
     const lastDate = rows.length > 0 ? rows[rows.length - 1].dateKey : null;
 

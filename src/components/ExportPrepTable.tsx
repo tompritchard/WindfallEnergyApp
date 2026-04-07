@@ -71,7 +71,7 @@ export default function ExportPrepTable({
                 <td style={bodyCellCentered}>{safeCurrency(row.exportRevenue)}</td>
                 <td style={bodyCellCentered}>{safeKwh(row.exportKwh)}</td>
                 <td style={bodyCellCentered}>{safeCurrency(row.netPosition)}</td>
-                <td style={bodyCellCentered}>{safeCurrency(row.runningTotal)}</td>
+                <td style={bodyCellCentered}>{formatCurrency(row.runningTotal)}</td>
               </tr>
             ))}
           </tbody>

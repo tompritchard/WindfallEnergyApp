@@ -100,8 +100,9 @@ export type SupplierComparison = {
 export type ExportPreparedMonth = {
   displayMonth: string;
   importCost: number;
+  importKwh: number;
   exportRevenue: number | null;
   exportKwh: number | null;
   netPosition: number | null;
-  runningTotal: number | null;
+  runningTotal: number;
 };

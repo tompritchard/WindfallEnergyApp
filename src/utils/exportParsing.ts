@@ -4,7 +4,7 @@ export type ExportRow = {
   inferredKwh: number | null;
 };
 
-type StoredExportRow = {
+export type StoredExportRow = {
   date: string;
   revenue: number;
   inferredKwh: number | null;

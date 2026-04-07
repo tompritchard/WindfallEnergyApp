@@ -20,7 +20,7 @@ type UploadPanelProps = {
 
 const statsRowStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "18% 27% 30% 25%",
+  gridTemplateColumns: "18fr 27fr 30fr 25fr",
   background: "rgba(255,250,245,0.5)",
   border: "1px solid rgba(91,62,46,0.08)",
   borderRadius: "8px",
