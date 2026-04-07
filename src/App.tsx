@@ -42,7 +42,9 @@ import {
   type ExportRow,
 } from "./utils/exportParsing";
 import freeElectricityCredits from "./data/freeElectricityCredits";
+import { SEED_EXPORT_MONTHS } from "./data/seedExportData";
 import { TARIFF_PERIODS } from "./utils/tariffs";
+import { deduplicateByKey } from "./utils/dedup";
 import { useProcessedData } from "./hooks/useProcessedData";
 import SummaryCard from "./components/SummaryCard";
 import ChartCard from "./components/ChartCard";
@@ -211,50 +213,52 @@ export default function App() {
     async function syncFromServer() {
       try {
         const [importNames, exportNames] = await Promise.all([
-          fetch("/api/import/list").then((r): Promise<string[]> => r.json()),
-          fetch("/api/export/list").then((r): Promise<string[]> => r.json()),
+          fetch("/api/import/list").then((r) => {
+            if (!r.ok) throw new Error(`Server error: ${r.status}`);
+            return r.json() as Promise<string[]>;
+          }),
+          fetch("/api/export/list").then((r) => {
+            if (!r.ok) throw new Error(`Server error: ${r.status}`);
+            return r.json() as Promise<string[]>;
+          }),
         ]);
 
         if (importNames.length === 0 && exportNames.length === 0) return;
 
-        const [importBatches, exportBatches] = await Promise.all([
-          Promise.all(
+        const [importResults, exportResults] = await Promise.all([
+          Promise.allSettled(
             importNames.map(async (name) => {
-              const blob = await fetch(
-                `/api/import/file/${encodeURIComponent(name)}`
-              ).then((r) => r.blob());
+              const response = await fetch(`/api/import/file/${encodeURIComponent(name)}`);
+              if (!response.ok) throw new Error(`Failed to fetch ${name}`);
+              const blob = await response.blob();
               return parseCsvFile(new File([blob], name, { type: "text/csv" }));
             })
           ),
-          Promise.all(
+          Promise.allSettled(
             exportNames.map(async (name) => {
-              const blob = await fetch(
-                `/api/export/file/${encodeURIComponent(name)}`
-              ).then((r) => r.blob());
-              return parseExportCsvFile(
-                new File([blob], name, { type: "text/csv" })
-              );
+              const response = await fetch(`/api/export/file/${encodeURIComponent(name)}`);
+              if (!response.ok) throw new Error(`Failed to fetch ${name}`);
+              const blob = await response.blob();
+              return parseExportCsvFile(new File([blob], name, { type: "text/csv" }));
             })
           ),
         ]);
 
-        const importDedupMap = new Map<string, UsageRow>();
-        for (const row of importBatches.flat()) {
-          importDedupMap.set(row.timestamp.toISOString(), row);
-        }
-        const exportDedupMap = new Map<string, ExportRow>();
-        for (const row of exportBatches.flat()) {
-          exportDedupMap.set(row.date.toISOString(), row);
-        }
+        const importBatches = importResults
+          .filter((r): r is PromiseFulfilledResult<UsageRow[]> => r.status === "fulfilled")
+          .map((r) => r.value);
+        const exportBatches = exportResults
+          .filter((r): r is PromiseFulfilledResult<ExportRow[]> => r.status === "fulfilled")
+          .map((r) => r.value);
 
         setRows(
-          Array.from(importDedupMap.values()).sort(
+          deduplicateByKey(importBatches.flat(), (row) => row.timestamp.toISOString()).sort(
             (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
           )
         );
         setFileNames(importNames.sort());
         setExportRows(
-          Array.from(exportDedupMap.values()).sort(
+          deduplicateByKey(exportBatches.flat(), (row) => row.date.toISOString()).sort(
             (a, b) => a.date.getTime() - b.date.getTime()
           )
         );
@@ -297,15 +301,10 @@ export default function App() {
     const combinedNewRows = parsedBatches.flat();
     const baseRows = appendMode ? rows : [];
 
-    const dedupedMap = new Map<string, UsageRow>();
-    for (const row of [...baseRows, ...combinedNewRows]) {
-      const key = row.timestamp.toISOString();
-      dedupedMap.set(key, row);
-    }
-
-    const finalRows = Array.from(dedupedMap.values()).sort(
-      (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
-    );
+    const finalRows = deduplicateByKey(
+      [...baseRows, ...combinedNewRows],
+      (row) => row.timestamp.toISOString()
+    ).sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
     const mergedFileNames = appendMode
       ? Array.from(
@@ -315,10 +314,7 @@ export default function App() {
 
     setRows(finalRows);
     setFileNames(mergedFileNames);
-    setIssues((previous) => [
-      ...(Array.isArray(previous) ? previous : []),
-      ...newIssues,
-    ]);
+    setIssues(newIssues);
 
     // Persist to server
     const importForm = new FormData();
@@ -339,38 +335,39 @@ export default function App() {
     if (!selectedFiles || selectedFiles.length === 0) return;
 
     const files = Array.from(selectedFiles);
+    const newExportIssues: ParseIssue[] = [];
     const parsedBatches: ExportRow[][] = [];
 
     for (const file of files) {
       try {
         const processed = await parseExportCsvFile(file);
+        if (processed.length === 0) {
+          newExportIssues.push({
+            fileName: file.name,
+            message: "No valid export rows found.",
+          });
+        }
         parsedBatches.push(processed);
       } catch (error) {
-        setExportIssues((previous) => [
-          ...(Array.isArray(previous) ? previous : []),
-          {
-            fileName: file.name,
-            message:
-              error instanceof Error
-                ? error.message
-                : "Unknown export parsing error.",
-          },
-        ]);
+        newExportIssues.push({
+          fileName: file.name,
+          message:
+            error instanceof Error
+              ? error.message
+              : "Unknown export parsing error.",
+        });
       }
     }
 
+    setExportIssues(newExportIssues);
+
     const combinedNewRows = parsedBatches.flat();
     const baseRows = exportAppendMode ? exportRows : [];
-    const dedupedMap = new Map<string, ExportRow>();
 
-    for (const row of [...baseRows, ...combinedNewRows]) {
-      const key = row.date.toISOString();
-      dedupedMap.set(key, row);
-    }
-
-    const finalRows = Array.from(dedupedMap.values()).sort(
-      (a, b) => a.date.getTime() - b.date.getTime()
-    );
+    const finalRows = deduplicateByKey(
+      [...baseRows, ...combinedNewRows],
+      (row) => row.date.toISOString()
+    ).sort((a, b) => a.date.getTime() - b.date.getTime());
 
     const baseFileNames = exportAppendMode ? (exportFileNames ?? []) : [];
     const merged = Array.from(
@@ -493,22 +490,7 @@ export default function App() {
       }
     }
 
-    const manualSeedMonths = [
-      {
-        key: "2025-11",
-        displayMonth: "Nov 2025",
-        exportRevenue: 31.68,
-        exportKwh: 132,
-      },
-      {
-        key: "2025-12",
-        displayMonth: "Dec 2025",
-        exportRevenue: 17.76,
-        exportKwh: 74,
-      },
-    ];
-
-    for (const seed of manualSeedMonths) {
+    for (const seed of SEED_EXPORT_MONTHS) {
       if (!exportMonthMap.has(seed.key)) {
         exportMonthMap.set(seed.key, {
           displayMonth: seed.displayMonth,

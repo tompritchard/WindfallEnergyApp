@@ -101,18 +101,18 @@ export function toStoredExportRow(row: ExportRow): StoredExportRow {
 export function fromStoredExportRow(value: unknown): ExportRow | null {
   if (!value || typeof value !== "object") return null;
 
-  const raw = value as Partial<StoredExportRow>;
-  if (typeof raw.date !== "string" || typeof raw.revenue !== "number") {
+  const obj = value as Record<string, unknown>;
+  if (typeof obj["date"] !== "string" || typeof obj["revenue"] !== "number") {
     return null;
   }
 
-  const date = new Date(raw.date);
+  const date = new Date(obj["date"]);
   if (Number.isNaN(date.getTime())) return null;
 
   return {
     date,
-    revenue: raw.revenue,
+    revenue: obj["revenue"],
     inferredKwh:
-      typeof raw.inferredKwh === "number" ? raw.inferredKwh : null,
+      typeof obj["inferredKwh"] === "number" ? obj["inferredKwh"] : null,
   };
 }

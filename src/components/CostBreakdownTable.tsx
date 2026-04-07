@@ -3,8 +3,7 @@ import type { DashboardTheme } from "../theme";
 import { formatCurrency } from "../utils/formatters";
 
 type MonthlyRow = {
-  displayMonth?: string;
-  month?: string;
+  displayMonth: string;
   totalCost?: number;
   offPeakCost?: number;
   offPeakPercent?: number;
@@ -52,7 +51,7 @@ function explicitOrDerivedPercent(
 }
 
 function getMonthLabel(row: MonthlyRow): string {
-  return row.displayMonth ?? row.month ?? "-";
+  return row.displayMonth;
 }
 
 const centeredOverlay: React.CSSProperties = { textAlign: "center", verticalAlign: "middle" };

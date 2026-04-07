@@ -19,7 +19,9 @@ for (const dir of [IMPORT_DIR, EXPORT_DIR]) {
   fs.mkdirSync(dir, { recursive: true });
 }
 
-app.use(cors());
+app.use(cors({
+  origin: ["http://localhost:5173", "http://192.168.0.8"],
+}));
 app.use(express.json());
 
 function makeStorage(dir: string): multer.StorageEngine {
@@ -29,8 +31,18 @@ function makeStorage(dir: string): multer.StorageEngine {
   });
 }
 
-const importUpload = multer({ storage: makeStorage(IMPORT_DIR) });
-const exportUpload = multer({ storage: makeStorage(EXPORT_DIR) });
+const FILE_SIZE_LIMIT = 10 * 1024 * 1024; // 10 MB
+
+const importUpload = multer({ storage: makeStorage(IMPORT_DIR), limits: { fileSize: FILE_SIZE_LIMIT } });
+const exportUpload = multer({ storage: makeStorage(EXPORT_DIR), limits: { fileSize: FILE_SIZE_LIMIT } });
+
+function assertWithinDir(dir: string, name: string): string {
+  const resolved = path.resolve(dir, name);
+  if (!resolved.startsWith(dir + path.sep) && resolved !== dir) {
+    throw new Error("Invalid file path");
+  }
+  return resolved;
+}
 
 function listCsvFiles(dir: string): string[] {
   return fs
@@ -55,13 +67,16 @@ app.get("/api/import/list", (_req, res) => {
 });
 
 app.get("/api/import/file/:name", (req, res) => {
-  const name = path.basename(req.params.name ?? "");
-  const filePath = path.join(IMPORT_DIR, name);
-  if (!fs.existsSync(filePath)) {
-    res.status(404).json({ error: "Not found" });
-    return;
+  try {
+    const filePath = assertWithinDir(IMPORT_DIR, path.basename(req.params.name ?? ""));
+    if (!fs.existsSync(filePath)) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    res.sendFile(filePath);
+  } catch {
+    res.status(400).json({ error: "Invalid file name" });
   }
-  res.sendFile(filePath);
 });
 
 app.delete("/api/import/clear", (_req, res) => {
@@ -86,13 +101,16 @@ app.get("/api/export/list", (_req, res) => {
 });
 
 app.get("/api/export/file/:name", (req, res) => {
-  const name = path.basename(req.params.name ?? "");
-  const filePath = path.join(EXPORT_DIR, name);
-  if (!fs.existsSync(filePath)) {
-    res.status(404).json({ error: "Not found" });
-    return;
+  try {
+    const filePath = assertWithinDir(EXPORT_DIR, path.basename(req.params.name ?? ""));
+    if (!fs.existsSync(filePath)) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    res.sendFile(filePath);
+  } catch {
+    res.status(400).json({ error: "Invalid file name" });
   }
-  res.sendFile(filePath);
 });
 
 app.delete("/api/export/clear", (_req, res) => {

@@ -15,7 +15,7 @@ type CustomTooltipProps = {
 };
 
 function formatValue(value: number | string | undefined): string {
-  if (value === undefined || value === null) return "-";
+  if (value === undefined) return "-";
   if (typeof value === "number") {
     return Number.isInteger(value) ? value.toString() : value.toFixed(2);
   }

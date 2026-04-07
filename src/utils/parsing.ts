@@ -14,7 +14,7 @@ export function parseUkTimestamp(value: string): Date | null {
   if (datePieces.length !== 3) return null;
 
   const [day, month, year] = datePieces;
-  const isoLike = `${year}-${month}-${day}T${timePart}`;
+  const isoLike = `${year}-${month}-${day}T${timePart}:00Z`;
   const parsed = new Date(isoLike);
 
   if (Number.isNaN(parsed.getTime())) return null;
