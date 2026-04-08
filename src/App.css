@@ -1,0 +1,86 @@
+.windfall-table-compact table {
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  width: 100%;
+}
+
+.windfall-table-compact th,
+.windfall-table-compact td {
+  padding-top: 6px !important;
+  padding-bottom: 6px !important;
+  line-height: 1.2 !important;
+}
+
+/* Off-Peak: cyan — 3 shading levels */
+.windfall-cost-table table thead tr:first-child th:nth-child(3) {
+  background: rgba(86, 204, 242, 0.32) !important;
+}
+.windfall-cost-table table thead tr:nth-child(2) th:nth-child(1),
+.windfall-cost-table table thead tr:nth-child(2) th:nth-child(2) {
+  background: rgba(86, 204, 242, 0.20) !important;
+}
+.windfall-cost-table table tbody td:nth-child(3),
+.windfall-cost-table table tbody td:nth-child(4) {
+  background: rgba(86, 204, 242, 0.09) !important;
+}
+
+/* Peak: orange — 3 shading levels */
+.windfall-cost-table table thead tr:first-child th:nth-child(4) {
+  background: rgba(242, 153, 74, 0.32) !important;
+}
+.windfall-cost-table table thead tr:nth-child(2) th:nth-child(3),
+.windfall-cost-table table thead tr:nth-child(2) th:nth-child(4) {
+  background: rgba(242, 153, 74, 0.20) !important;
+}
+.windfall-cost-table table tbody td:nth-child(5),
+.windfall-cost-table table tbody td:nth-child(6) {
+  background: rgba(242, 153, 74, 0.09) !important;
+}
+
+/* Standing Charge: purple — 3 shading levels */
+.windfall-cost-table table thead tr:first-child th:nth-child(5) {
+  background: rgba(187, 107, 217, 0.32) !important;
+}
+.windfall-cost-table table thead tr:nth-child(2) th:nth-child(5),
+.windfall-cost-table table thead tr:nth-child(2) th:nth-child(6) {
+  background: rgba(187, 107, 217, 0.20) !important;
+}
+.windfall-cost-table table tbody td:nth-child(7),
+.windfall-cost-table table tbody td:nth-child(8) {
+  background: rgba(187, 107, 217, 0.09) !important;
+}
+
+.windfall-export-table table thead th:nth-child(2),
+.windfall-export-table table tbody td:nth-child(2),
+.windfall-export-table table thead th:nth-child(4),
+.windfall-export-table table tbody td:nth-child(4),
+.windfall-export-table table thead th:nth-child(6),
+.windfall-export-table table tbody td:nth-child(6) {
+  background: rgba(80, 160, 255, 0.08) !important;
+}
+
+.windfall-export-table table thead th:nth-child(3),
+.windfall-export-table table tbody td:nth-child(3),
+.windfall-export-table table thead th:nth-child(5),
+.windfall-export-table table tbody td:nth-child(5) {
+  background: rgba(80, 160, 255, 0.04) !important;
+}
+
+.windfall-compact-panel .windfall-stat-card {
+  min-height: 44px !important;
+}
+
+/* ── Mobile upload toggle button ─────────────────────────── */
+.wf-mobile-upload-toggle button {
+  width: 100%;
+  border: 1px solid rgba(91, 62, 46, 0.18);
+  background: rgba(255, 255, 255, 0.5);
+  color: #2c211d;
+  border-radius: 999px;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  letter-spacing: 0.02em;
+}

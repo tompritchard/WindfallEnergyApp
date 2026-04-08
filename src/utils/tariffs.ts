@@ -57,7 +57,7 @@ export function getTariffForTimestamp(timestamp: Date): {
   standing: number;
   tariffPeriodName: string;
 } {
-  const hour = timestamp.getHours();
+  const hour = timestamp.getUTCHours();
   const period = getTariffPeriod(timestamp);
   const isOffPeak = isHourWithinOffPeak(
     hour,

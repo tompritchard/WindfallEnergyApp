@@ -59,17 +59,6 @@ export function monthLabelFromDate(date: Date): string {
   });
 }
 
-export function monthKeyFromDisplayMonth(displayMonth: string): string {
-  const [monthLabel, yearLabel] = displayMonth.trim().split(/\s+/);
-  const monthMap: Record<string, string> = {
-    Jan: "01", Feb: "02", Mar: "03", Apr: "04",
-    May: "05", Jun: "06", Jul: "07", Aug: "08",
-    Sep: "09", Oct: "10", Nov: "11", Dec: "12",
-  };
-  const month = monthMap[monthLabel] ?? "01";
-  const year = /^\d{4}$/.test(yearLabel ?? "") ? yearLabel : "1970";
-  return `${year}-${month}`;
-}
 
 export function sortMonthKeysAscending(a: string, b: string): number {
   return a.localeCompare(b);
@@ -82,13 +71,3 @@ export function parseUkDateToMonthKey(value: string): string | null {
   return `${yyyy}-${mm}`;
 }
 
-export function safeFiniteNumber(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
-}
-
-export function summariseFileNameList(files: unknown): string {
-  if (!Array.isArray(files) || files.length === 0) return "No files loaded";
-  if (files.length === 1) return String(files[0] ?? "");
-  if (files.length <= 3) return files.map((f) => String(f ?? "")).join(", ");
-  return `${files.length} files loaded`;
-}

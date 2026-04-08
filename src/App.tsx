@@ -1,3 +1,4 @@
+import "./App.css";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Area,
@@ -24,10 +25,8 @@ import {
   formatDisplayDateFromDate,
   formatKwh,
   monthKeyFromDate,
-  monthKeyFromDisplayMonth,
   monthLabelFromDate,
   parseUkDateToMonthKey,
-  safeFiniteNumber,
   sortMonthKeysAscending,
 } from "./utils/formatters";
 import {
@@ -42,7 +41,7 @@ import {
   type ExportRow,
   type StoredExportRow,
 } from "./utils/exportParsing";
-import freeElectricityCredits from "./data/freeElectricityCredits";
+import { freeElectricityCredits } from "./data/freeElectricityCredits";
 import { SEED_EXPORT_MONTHS } from "./data/seedExportData";
 import { TARIFF_PERIODS } from "./utils/tariffs";
 import { deduplicateByKey } from "./utils/dedup";
@@ -66,6 +65,7 @@ type StoredDashboardState = {
   appendMode?: boolean;
   exportAppendMode?: boolean;
   selectedThemeId?: string;
+  detailedChartsOpen?: boolean;
 };
 
 export default function App() {
@@ -78,6 +78,8 @@ export default function App() {
   const [appendMode, setAppendMode] = useState<boolean>(true);
   const [exportAppendMode, setExportAppendMode] = useState<boolean>(true);
   const [mobileUploadVisible, setMobileUploadVisible] =
+    useState<boolean>(false);
+  const [detailedChartsOpen, setDetailedChartsOpen] =
     useState<boolean>(false);
   const [windowWidth, setWindowWidth] = useState<number>(
     typeof window !== "undefined" ? window.innerWidth : 1280
@@ -141,6 +143,9 @@ export default function App() {
           ? parsed.selectedThemeId
           : defaultThemeId
       );
+      setDetailedChartsOpen(
+        typeof parsed.detailedChartsOpen === "boolean" ? parsed.detailedChartsOpen : false
+      );
       setIssues([]);
     } catch (error) {
       console.error("Failed to restore saved dashboard state", error);
@@ -169,6 +174,7 @@ export default function App() {
         appendMode,
         exportAppendMode,
         selectedThemeId,
+        detailedChartsOpen,
       };
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     } catch (error) {
@@ -182,6 +188,7 @@ export default function App() {
     appendMode,
     exportAppendMode,
     selectedThemeId,
+    detailedChartsOpen,
     hasRestoredState,
   ]);
 
@@ -419,12 +426,12 @@ export default function App() {
 
   const adjustedMonthlyData = useMemo(() => {
     return monthlyData.map((row: MonthlyDataPoint) => {
-      const key = monthKeyFromDisplayMonth(row.displayMonth);
+      const key = row.month;
       const freeCredit = freeCreditByMonth.get(key) ?? 0;
 
-      const originalPeakCost = safeFiniteNumber(row.peakCost);
-      const originalOffPeakCost = safeFiniteNumber(row.offPeakCost);
-      const originalStanding = safeFiniteNumber(row.standing);
+      const originalPeakCost = row.peakCost;
+      const originalOffPeakCost = row.offPeakCost;
+      const originalStanding = row.standing;
 
       // Free credits are applied only against peak cost. Any credit that exceeds
       // the month's peak cost is discarded (not carried to off-peak or the next month).
@@ -461,11 +468,10 @@ export default function App() {
     >();
 
     for (const row of adjustedMonthlyData) {
-      const key = monthKeyFromDisplayMonth(row.displayMonth);
-      importMonthMap.set(key, {
+      importMonthMap.set(row.month, {
         displayMonth: row.displayMonth,
-        importCost: safeFiniteNumber(row.totalCost),
-        importKwh: safeFiniteNumber(row.kwh),
+        importCost: row.totalCost,
+        importKwh: row.kwh,
       });
     }
 
@@ -544,8 +550,8 @@ export default function App() {
 
   const isMobile = windowWidth <= 768;
 
-  if (!theme) return null;
-
+  // theme is always defined: getThemeById(defaultThemeId) always resolves, and the
+  // theme selector only offers valid IDs. The guard below is a runtime safety net.
   const {
     compactHeroCardStyle,
     compactHeroInnerGridStyle,
@@ -560,30 +566,34 @@ export default function App() {
     sideBySideTableRowStyle,
     fourColumnChartsStyle,
     detailedChartsGridStyle,
-  } = useMemo(() => ({
-    compactHeroCardStyle: { ...theme.styles.heroCard, padding: "10px 16px" } as React.CSSProperties,
+  } = useMemo(() => {
+    // theme is always non-null in practice: getThemeById returns defaultTheme as fallback.
+    // The guard `if (!theme) return null` immediately after this hook exits if ever null.
+    const t = theme!;
+    return {
+    compactHeroCardStyle: { ...t.styles.heroCard, padding: "10px 16px" } as React.CSSProperties,
     compactHeroInnerGridStyle: {
-      ...theme.styles.heroInnerGrid,
+      ...t.styles.heroInnerGrid,
       display: "grid",
       gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1.7fr) minmax(340px, 1fr)",
       gap: "10px",
       alignItems: isMobile ? "start" : "center",
     } as React.CSSProperties,
     compactHeroTitleStyle: {
-      ...theme.styles.heroTitle,
+      ...t.styles.heroTitle,
       fontSize: isMobile ? "1.3rem" : "1.75rem",
       lineHeight: 1.1,
       marginBottom: "4px",
     } as React.CSSProperties,
     compactHeroBodyStyle: {
-      ...theme.styles.heroBody,
+      ...t.styles.heroBody,
       marginBottom: "6px",
       fontSize: "0.8rem",
       lineHeight: 1.2,
       display: isMobile ? "none" : undefined,
     } as React.CSSProperties,
     compactHeroMetaCardStyle: {
-      ...theme.styles.heroMetaCard,
+      ...t.styles.heroMetaCard,
       padding: "8px 12px",
       display: "flex",
       flexDirection: "column" as const,
@@ -608,7 +618,7 @@ export default function App() {
       ? { display: "grid", gridTemplateColumns: "1fr", gap: "8px" }
       : rows.length > 0
       ? { display: "grid", gridTemplateColumns: "28fr 72fr", gap: "8px", alignItems: "stretch" }
-      : { ...theme.layout.uploadRow }) as React.CSSProperties,
+      : { ...t.layout.uploadRow }) as React.CSSProperties,
     utilityColumnStyle: {
       display: "grid",
       gridTemplateRows: isMobile ? "auto auto" : "1fr 1fr",
@@ -636,100 +646,14 @@ export default function App() {
     } as React.CSSProperties,
     detailedChartsGridStyle: (isMobile
       ? { display: "grid", gridTemplateColumns: "1fr", gap: "10px", alignItems: "start" }
-      : theme.layout.detailedChartsGrid) as React.CSSProperties,
-  }), [theme, isMobile, rows.length]);
+      : t.layout.detailedChartsGrid) as React.CSSProperties,
+    };
+  }, [theme, isMobile, rows.length]);
+
+  if (!theme) return null;
 
   return (
     <div style={theme.styles.appShell}>
-      <style>{`
-        .windfall-table-compact table {
-          border-collapse: separate !important;
-          border-spacing: 0 !important;
-          width: 100%;
-        }
-
-        .windfall-table-compact th,
-        .windfall-table-compact td {
-          padding-top: 6px !important;
-          padding-bottom: 6px !important;
-          line-height: 1.2 !important;
-        }
-
-        /* Off-Peak: cyan — 3 shading levels */
-        .windfall-cost-table table thead tr:first-child th:nth-child(3) {
-          background: rgba(86, 204, 242, 0.32) !important;
-        }
-        .windfall-cost-table table thead tr:nth-child(2) th:nth-child(1),
-        .windfall-cost-table table thead tr:nth-child(2) th:nth-child(2) {
-          background: rgba(86, 204, 242, 0.20) !important;
-        }
-        .windfall-cost-table table tbody td:nth-child(3),
-        .windfall-cost-table table tbody td:nth-child(4) {
-          background: rgba(86, 204, 242, 0.09) !important;
-        }
-
-        /* Peak: orange — 3 shading levels */
-        .windfall-cost-table table thead tr:first-child th:nth-child(4) {
-          background: rgba(242, 153, 74, 0.32) !important;
-        }
-        .windfall-cost-table table thead tr:nth-child(2) th:nth-child(3),
-        .windfall-cost-table table thead tr:nth-child(2) th:nth-child(4) {
-          background: rgba(242, 153, 74, 0.20) !important;
-        }
-        .windfall-cost-table table tbody td:nth-child(5),
-        .windfall-cost-table table tbody td:nth-child(6) {
-          background: rgba(242, 153, 74, 0.09) !important;
-        }
-
-        /* Standing Charge: purple — 3 shading levels */
-        .windfall-cost-table table thead tr:first-child th:nth-child(5) {
-          background: rgba(187, 107, 217, 0.32) !important;
-        }
-        .windfall-cost-table table thead tr:nth-child(2) th:nth-child(5),
-        .windfall-cost-table table thead tr:nth-child(2) th:nth-child(6) {
-          background: rgba(187, 107, 217, 0.20) !important;
-        }
-        .windfall-cost-table table tbody td:nth-child(7),
-        .windfall-cost-table table tbody td:nth-child(8) {
-          background: rgba(187, 107, 217, 0.09) !important;
-        }
-
-        .windfall-export-table table thead th:nth-child(2),
-        .windfall-export-table table tbody td:nth-child(2),
-        .windfall-export-table table thead th:nth-child(4),
-        .windfall-export-table table tbody td:nth-child(4),
-        .windfall-export-table table thead th:nth-child(6),
-        .windfall-export-table table tbody td:nth-child(6) {
-          background: rgba(80, 160, 255, 0.08) !important;
-        }
-
-        .windfall-export-table table thead th:nth-child(3),
-        .windfall-export-table table tbody td:nth-child(3),
-        .windfall-export-table table thead th:nth-child(5),
-        .windfall-export-table table tbody td:nth-child(5) {
-          background: rgba(80, 160, 255, 0.04) !important;
-        }
-
-        .windfall-compact-panel .windfall-stat-card {
-          min-height: 44px !important;
-        }
-
-        /* ── Mobile upload toggle button ─────────────────────────── */
-        .wf-mobile-upload-toggle button {
-          width: 100%;
-          border: 1px solid rgba(91, 62, 46, 0.18);
-          background: rgba(255, 255, 255, 0.5);
-          color: #2c211d;
-          border-radius: 999px;
-          padding: 10px 16px;
-          cursor: pointer;
-          font-size: 13px;
-          font-weight: 600;
-          font-family: inherit;
-          letter-spacing: 0.02em;
-        }
-      `}</style>
-
       <div style={theme.styles.pageContainer}>
         <div style={compactHeroCardStyle}>
           <div style={compactHeroInnerGridStyle}>
@@ -1135,8 +1059,8 @@ export default function App() {
 
             <CollapsibleSection
               title="Detailed Daily Charts"
-              storageKey="windfall-detailed-charts-open"
-              defaultOpen={false}
+              isOpen={detailedChartsOpen}
+              onToggle={() => setDetailedChartsOpen((v) => !v)}
               theme={theme}
             >
               <div style={detailedChartsGridStyle}>

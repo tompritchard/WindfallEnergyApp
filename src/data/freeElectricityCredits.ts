@@ -11,5 +11,3 @@ export const freeElectricityCredits: FreeElectricityCredit[] = [
   { date: "22/03/2026", credit: 9.57 },
   { date: "29/03/2026", credit: 9.99 },
 ];
-
-export default freeElectricityCredits;
