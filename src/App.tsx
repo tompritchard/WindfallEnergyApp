@@ -923,7 +923,7 @@ export default function App() {
                   width="100%"
                   height={theme.tokens.chart.mediumHeight}
                 >
-                  <BarChart data={monthlyData}>
+                  <BarChart data={adjustedMonthlyData}>
                     <CartesianGrid
                       strokeDasharray="3 3"
                       stroke={theme.charts.cartesianGridStroke}
