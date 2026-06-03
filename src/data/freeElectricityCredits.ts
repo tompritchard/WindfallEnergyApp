@@ -18,4 +18,5 @@ export const freeElectricityCredits: FreeElectricityCredit[] = [
   { date: "10/05/2026", credit: 10.67 },
   { date: "17/05/2026", credit: 7.92 },
   { date: "24/05/2026", credit: 0.11 },
+  { date: "31/05/2026", credit: 6 },
 ];
