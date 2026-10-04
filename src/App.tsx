@@ -55,6 +55,9 @@ import ExportPrepTable from "./components/ExportPrepTable";
 import CollapsibleSection from "./components/CollapsibleSection";
 import { defaultThemeId, getThemeById, themes } from "./theme";
 
+// Show pence to up to 3 d.p., trimming trailing zeros (e.g. 29.378, 8.56)
+const formatPence = (rate: number) => String(Number((rate * 100).toFixed(3)));
+
 const STORAGE_KEY = "windfall-energy-dashboard-state-v3";
 
 type StoredDashboardState = {
@@ -724,13 +727,13 @@ export default function App() {
                         {period.name}
                       </div>
                       <div style={{ fontWeight: 700 }}>
-                        Off-peak {offPeakRange} | {(period.offPeak * 100).toFixed(2)}p
+                        Off-peak {offPeakRange} | {formatPence(period.offPeak)}p
                       </div>
                       <div style={{ marginTop: "3px" }}>
-                        Peak other times | {(period.peak * 100).toFixed(2)}p
+                        Peak other times | {formatPence(period.peak)}p
                       </div>
                       <div style={{ marginTop: "3px" }}>
-                        Standing {(period.standing * 100).toFixed(2)}p/day
+                        Standing {formatPence(period.standing)}p/day
                       </div>
                       <div style={{ marginTop: "3px", fontSize: "0.72rem", opacity: 0.6 }}>
                         Until {endLabel}
